@@ -1,7 +1,7 @@
 -- Rage Hub Client
 -- Replace GUI_LIBRARY_URL with your raw GitHub link to roblox_prism_gui_library.lua.
 
-local GUI_LIBRARY_URL = "https://raw.githubusercontent.com/sinmirka/BLASPHEMY/main/roblox_prism_gui_library.lua"
+local GUI_LIBRARY_URL = "https://raw.githubusercontent.com/sinmirka/BLASPHEMY/main/roblox_prism_gui_library.lua?v=1.1.1"
 local REQUIRED_GUI_LIBRARY_VERSION = "1.1.1"
 
 local Players = game:GetService("Players")
@@ -30,7 +30,21 @@ if getgenv then
 end
 
 if not Library or Library.Version ~= REQUIRED_GUI_LIBRARY_VERSION then
-    Library = loadstring(game:HttpGet(GUI_LIBRARY_URL))()
+    local ok, loadedLibrary = pcall(function()
+        return loadstring(game:HttpGet(GUI_LIBRARY_URL))()
+    end)
+
+    if not ok then
+        warn("[BLASPHEMY] Failed to load GUI library: " .. tostring(loadedLibrary))
+        return
+    end
+
+    Library = loadedLibrary
+end
+
+if not Library or type(Library.CreateWindow) ~= "function" then
+    warn("[BLASPHEMY] GUI library loaded, but CreateWindow is missing.")
+    return
 end
 
 local Window = Library:CreateWindow({
