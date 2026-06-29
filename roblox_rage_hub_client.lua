@@ -432,9 +432,9 @@ local function getMousePosition()
     return math.floor(location.X), math.floor(location.Y)
 end
 
-local function sendMouseClick()
-    if Window:IsMouseOver() then
-        return
+local function sendVirtualMouseClick(blockGui)
+    if blockGui and Window:IsMouseOver() then
+        return false
     end
 
     local x, y = getMousePosition()
@@ -448,9 +448,15 @@ local function sendMouseClick()
         VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 0)
     end)
 
-    if not downOk or not upOk then
-        activateTool()
-    end
+    return downOk and upOk
+end
+
+local function sendMouseClick()
+    return sendVirtualMouseClick(true)
+end
+
+local function sendBackgroundMouseClick()
+    return sendVirtualMouseClick(false)
 end
 
 local function sendKey(keyCode)
@@ -537,7 +543,7 @@ local function setState(name, value)
     elseif name == "backgroundM1" then
         startLoop(name, function()
             return config.backgroundM1Interval
-        end, activateTool)
+        end, sendBackgroundMouseClick)
     elseif name == "autoSkills" then
         startLoop(name, function()
             return config.autoSkillsInterval
@@ -1526,7 +1532,7 @@ controls.autoM1 = RageTab:AddToggle({
 
 controls.backgroundM1 = RageTab:AddToggle({
     Name = "Background M1",
-    Description = "Activate equipped M1 tool",
+    Description = "Virtual LMB without GUI block",
     Default = false,
     Callback = function(value)
         setState("backgroundM1", value)
