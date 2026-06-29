@@ -19,12 +19,13 @@ loadstring(game:HttpGet("https://cdn.jsdelivr.net/gh/sinmirka/BLASPHEMY@c92b35c/
 
 ## Current Tabs
 
-- `Rage` - target selector, target/friend lists, target bind, low-health targeting, orbit/smart orbit, camera lock, anti-void, target highlight customization, combat automation, auto-evasive, and timing controls.
+- `Rage` - target selector, target/friend lists, target bind, low-health targeting, orbit/smart orbit, camera lock, anti-void, and target highlight customization.
+- `Combat` - Auto M1, Background M1, Auto Skills, Auto Ultimate, Auto Burst, Auto Dash/Wall Combo, Auto Evasive, and timing controls.
 - `Player` - WalkSpeed, Jump Power, and Fly with selectable implementation methods.
 - `Optimizations` - shadows, textures, effects, materials, terrain, lighting, 3D render toggle, and performance presets.
 - `AutoFarm` - SetPosition capture, saved CFrame lock, and teleport delay control.
 - `Alt` - AutoReset on spawn with reset delay, manual reset, separate SetPosition capture, saved CFrame lock, respawn teleport delay, and teleport interval control.
-- `Settings` - config save/load/delete, GUI themes, hide-GUI bind, reset controls, and advanced timing/anti-void tuning.
+- `Settings` - config save/load/delete, per-UserId config auto-load, GUI themes, Anti-AFK, Auto Reconnect, hide-GUI bind, reset controls, and advanced timing/anti-void tuning.
 - Top-center watermark - always-visible Blasphemy status, ping, and FPS display.
 
 ## Requirements
@@ -33,10 +34,12 @@ loadstring(game:HttpGet("https://cdn.jsdelivr.net/gh/sinmirka/BLASPHEMY@c92b35c/
 - Access to `cdn.jsdelivr.net` is required.
 - Config saving requires executor file APIs such as `writefile`, `readfile`, and `isfile`.
 - Some input features require `VirtualInputManager` support.
+- Script queueing after reconnect requires `queue_on_teleport` or an equivalent executor API.
 - Background modes use `Tool:Activate()` where possible.
 
 ## Notes
 
 - The loadstring is pinned to a tested commit to avoid stale CDN cache.
 - If the GUI does not appear, check that the loadstring URL and bundled GUI library URL return `200 OK`.
+- Auto Reconnect can attempt to queue the loader on teleport, but Auto Execute is still the most reliable fallback.
 - Use at your own risk.

@@ -9,9 +9,13 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
 local Lighting = game:GetService("Lighting")
+local VirtualUser = game:GetService("VirtualUser")
+local TeleportService = game:GetService("TeleportService")
+local GuiService = game:GetService("GuiService")
 
 local LocalPlayer = Players.LocalPlayer
 local ZERO_VECTOR = Vector3.new(0, 0, 0)
+local SELF_RELOAD_URL = "https://raw.githubusercontent.com/sinmirka/BLASPHEMY/main/roblox_rage_hub_client.lua"
 
 local function deferTask(callback)
     if task and task.defer then
@@ -446,14 +450,15 @@ end
 
 createBlasphemyWatermark()
 
-local tabsOk, RageTab, PlayerTab, OptimizationsTab, AutoFarmTab, AltTab, SettingsTab = pcall(function()
+local tabsOk, RageTab, CombatTab, PlayerTab, OptimizationsTab, AutoFarmTab, AltTab, SettingsTab = pcall(function()
     local rage = Window:AddTab("Rage")
+    local combat = Window:AddTab("Combat")
     local player = Window:AddTab("Player")
     local optimizations = Window:AddTab("Optimizations")
     local autoFarm = Window:AddTab("AutoFarm")
     local alt = Window:AddTab("Alt")
     local settings = Window:AddTab("Settings")
-    return rage, player, optimizations, autoFarm, alt, settings
+    return rage, combat, player, optimizations, autoFarm, alt, settings
 end)
 
 if not tabsOk then
@@ -521,6 +526,9 @@ local state = {
     optTerrainLite = false,
     optLowLighting = false,
     optNo3DRender = false,
+    antiAfk = false,
+    autoReconnect = false,
+    queueScriptOnTeleport = true,
     autoFarmPositionLock = false,
     altAutoReset = false,
     altPositionLock = false,
@@ -551,6 +559,9 @@ local config = {
     altAutoResetDelay = 0.00,
     altRespawnTeleportDelay = 1.00,
     optTextureTransparency = 1.00,
+    antiAfkMethod = "Mixed",
+    antiAfkInterval = 120.00,
+    autoReconnectDelay = 3.00,
     evasiveSideHoldTime = 0.045,
     keyHoldTime = 0.015,
     mouseHoldTime = 0.012,
@@ -579,6 +590,7 @@ local friendList = {}
 local WALK_SPEED_METHODS = { "Humanoid", "CFrame", "Velocity" }
 local JUMP_POWER_METHODS = { "JumpPower", "JumpHeight", "Velocity Boost" }
 local FLY_METHODS = { "CFrame", "Velocity", "BodyMover" }
+local ANTI_AFK_METHODS = { "Mixed", "VirtualUser", "VirtualInput", "Camera Nudge" }
 
 local stateKeys = {
     "autoM1",
@@ -598,6 +610,9 @@ local stateKeys = {
     "optTerrainLite",
     "optLowLighting",
     "optNo3DRender",
+    "antiAfk",
+    "autoReconnect",
+    "queueScriptOnTeleport",
     "autoFarmPositionLock",
     "altAutoReset",
     "altPositionLock",
@@ -627,6 +642,9 @@ local configKeys = {
     "altAutoResetDelay",
     "altRespawnTeleportDelay",
     "optTextureTransparency",
+    "antiAfkMethod",
+    "antiAfkInterval",
+    "autoReconnectDelay",
     "evasiveSideHoldTime",
     "keyHoldTime",
     "mouseHoldTime",
@@ -664,6 +682,11 @@ local optimizationWorkspaceConnection = nil
 local optimizationLightingConnection = nil
 local optimizationWhiteOverlay = nil
 local warned3DRenderToggle = false
+local antiAfkIdleConnection = nil
+local antiAfkLoopRunning = false
+local autoReconnectConnections = {}
+local autoReconnectPending = false
+local autoLoadLabel = nil
 local lastJumpBoostAt = 0
 local lastSafeCFrame = nil
 local nextHighlightUpdate = 0
@@ -1005,6 +1028,24 @@ local function disableAltPositionLock()
         altTeleportConnection:Disconnect()
         altTeleportConnection = nil
     end
+end
+
+local function isOption(value, options)
+    for _, option in ipairs(options) do
+        if value == option then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function normalizeOption(value, options, fallback)
+    if isOption(value, options) then
+        return value
+    end
+
+    return fallback
 end
 
 local optimizationStateKeys = {
@@ -1457,6 +1498,251 @@ local function setOptimizationPreset(enabled)
     end
 end
 
+local function getQueueOnTeleport()
+    if type(queue_on_teleport) == "function" then
+        return queue_on_teleport
+    end
+
+    if syn and type(syn.queue_on_teleport) == "function" then
+        return syn.queue_on_teleport
+    end
+
+    if fluxus and type(fluxus.queue_on_teleport) == "function" then
+        return fluxus.queue_on_teleport
+    end
+
+    return nil
+end
+
+local function queueSelfOnTeleport()
+    if not state.queueScriptOnTeleport then
+        return false
+    end
+
+    local queue = getQueueOnTeleport()
+    if not queue then
+        return false
+    end
+
+    local code = 'loadstring(game:HttpGet("' .. SELF_RELOAD_URL .. '"))()'
+    local ok = pcall(function()
+        queue(code)
+    end)
+
+    return ok
+end
+
+local function performAntiAfk(method)
+    method = normalizeOption(method or config.antiAfkMethod, ANTI_AFK_METHODS, "Mixed")
+
+    if method == "Mixed" or method == "VirtualUser" then
+        pcall(function()
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton2(Vector2.new(0, 0))
+        end)
+    end
+
+    if method == "Mixed" or method == "VirtualInput" then
+        local location = UserInputService:GetMouseLocation()
+        tryVirtualInput(function()
+            VirtualInputManager:SendMouseMoveEvent(location.X + 1, location.Y + 1, game)
+        end)
+        tryVirtualInput(function()
+            VirtualInputManager:SendMouseMoveEvent(location.X, location.Y, game)
+        end)
+    end
+
+    if method == "Mixed" or method == "Camera Nudge" then
+        local camera = workspace.CurrentCamera
+        if camera then
+            local currentCFrame = camera.CFrame
+            pcall(function()
+                camera.CFrame = currentCFrame * CFrame.Angles(0, math.rad(0.015), 0)
+            end)
+
+            deferTask(function()
+                if workspace.CurrentCamera == camera then
+                    pcall(function()
+                        camera.CFrame = currentCFrame
+                    end)
+                end
+            end)
+        end
+    end
+end
+
+local function startAntiAfkLoop()
+    if antiAfkLoopRunning then
+        return
+    end
+
+    antiAfkLoopRunning = true
+
+    task.spawn(function()
+        while state.antiAfk do
+            task.wait(math.max(15, tonumber(config.antiAfkInterval) or 120))
+
+            if state.antiAfk then
+                performAntiAfk()
+            end
+        end
+
+        antiAfkLoopRunning = false
+    end)
+end
+
+local function enableAntiAfk()
+    if LocalPlayer and not antiAfkIdleConnection then
+        antiAfkIdleConnection = LocalPlayer.Idled:Connect(function()
+            if state.antiAfk then
+                performAntiAfk()
+            end
+        end)
+    end
+
+    performAntiAfk()
+    startAntiAfkLoop()
+end
+
+local function disableAntiAfk()
+    if antiAfkIdleConnection then
+        antiAfkIdleConnection:Disconnect()
+        antiAfkIdleConnection = nil
+    end
+end
+
+local function scheduleReconnect(reason)
+    if not state.autoReconnect or autoReconnectPending then
+        return
+    end
+
+    autoReconnectPending = true
+    local delaySeconds = math.max(0, tonumber(config.autoReconnectDelay) or 0)
+
+    deferTask(function()
+        task.wait(delaySeconds)
+
+        if not state.autoReconnect then
+            autoReconnectPending = false
+            return
+        end
+
+        queueSelfOnTeleport()
+
+        pcall(function()
+            TeleportService:Teleport(game.PlaceId, LocalPlayer)
+        end)
+
+        pcall(function()
+            TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
+        end)
+
+        warn("[Blasphemy] Auto reconnect attempted: " .. tostring(reason or "unknown"))
+    end)
+end
+
+local function isPromptVisible(instance)
+    local current = instance
+
+    while current do
+        if current:IsA("GuiObject") and not current.Visible then
+            return false
+        end
+
+        if current:IsA("ScreenGui") and not current.Enabled then
+            return false
+        end
+
+        current = current.Parent
+    end
+
+    return true
+end
+
+local function isReconnectPrompt(instance)
+    if not instance then
+        return false
+    end
+
+    if not isPromptVisible(instance) then
+        return false
+    end
+
+    if instance.Name == "ErrorPrompt" or instance.Name == "ErrorTitle" or instance.Name == "ErrorMessage" then
+        return true
+    end
+
+    if instance:IsA("TextLabel") or instance:IsA("TextButton") then
+        local text = string.lower(tostring(instance.Text or ""))
+        return text:find("disconnect", 1, true)
+            or text:find("reconnect", 1, true)
+            or text:find("kicked", 1, true)
+            or text:find("lost connection", 1, true)
+            or text:find("error code", 1, true)
+    end
+
+    return false
+end
+
+local function watchReconnectPromptRoot(root)
+    if not root then
+        return
+    end
+
+    for _, descendant in ipairs(root:GetDescendants()) do
+        if isReconnectPrompt(descendant) then
+            scheduleReconnect("existing disconnect prompt")
+            break
+        end
+    end
+
+    table.insert(autoReconnectConnections, root.DescendantAdded:Connect(function(descendant)
+        if isReconnectPrompt(descendant) then
+            scheduleReconnect("disconnect prompt")
+        end
+    end))
+end
+
+local function enableAutoReconnect()
+    autoReconnectPending = false
+
+    for _, connection in ipairs(autoReconnectConnections) do
+        pcall(function()
+            connection:Disconnect()
+        end)
+    end
+
+    autoReconnectConnections = {}
+
+    local okCoreGui, coreGui = pcall(function()
+        return game:GetService("CoreGui")
+    end)
+
+    if okCoreGui and coreGui then
+        watchReconnectPromptRoot(coreGui)
+    end
+
+    pcall(function()
+        table.insert(autoReconnectConnections, GuiService.ErrorMessageChanged:Connect(function(message)
+            if state.autoReconnect and tostring(message or "") ~= "" then
+                scheduleReconnect("GuiService error")
+            end
+        end))
+    end)
+end
+
+local function disableAutoReconnect()
+    autoReconnectPending = false
+
+    for _, connection in ipairs(autoReconnectConnections) do
+        pcall(function()
+            connection:Disconnect()
+        end)
+    end
+
+    autoReconnectConnections = {}
+end
+
 local originalHumanoidValues = setmetatable({}, { __mode = "k" })
 
 local function getOriginalHumanoidValues(humanoid)
@@ -1524,24 +1810,6 @@ local function cleanupPlayerMovement()
     cleanupFlyObjects()
     restoreWalkSpeed()
     restoreJumpPower()
-end
-
-local function isOption(value, options)
-    for _, option in ipairs(options) do
-        if value == option then
-            return true
-        end
-    end
-
-    return false
-end
-
-local function normalizeOption(value, options, fallback)
-    if isOption(value, options) then
-        return value
-    end
-
-    return fallback
 end
 
 local function getFlyInputVector()
@@ -1934,6 +2202,26 @@ local function setState(name, value)
 
     if optimizationStateKeys[name] then
         setOptimizationState(name, state[name])
+        return
+    end
+
+    if name == "antiAfk" then
+        if state[name] then
+            enableAntiAfk()
+        else
+            disableAntiAfk()
+        end
+
+        return
+    end
+
+    if name == "autoReconnect" then
+        if state[name] then
+            enableAutoReconnect()
+        else
+            disableAutoReconnect()
+        end
+
         return
     end
 
@@ -2404,6 +2692,16 @@ local function getConfigPath(name)
     return CONFIG_ROOT .. "_" .. safeName .. ".json"
 end
 
+local function getAutoLoadPath()
+    local userId = LocalPlayer and LocalPlayer.UserId or 0
+
+    if type(makefolder) == "function" then
+        return CONFIG_DIR .. "/autoload_" .. tostring(userId) .. ".txt"
+    end
+
+    return CONFIG_ROOT .. "_autoload_" .. tostring(userId) .. ".txt"
+end
+
 local function listConfigNames()
     local names = {}
     local seen = {}
@@ -2455,7 +2753,7 @@ end
 
 local function collectConfigData()
     local data = {
-        version = 6,
+        version = 7,
         theme = settings.theme or Window:GetTheme(),
         menuBind = keyToName(Window:GetToggleKey()),
         targetBind = controls.targetBind and keyToName(controls.targetBind:Get()) or nil,
@@ -2497,6 +2795,8 @@ local function syncNumericControls()
         altAutoResetDelay = config.altAutoResetDelay,
         altRespawnTeleportDelay = config.altRespawnTeleportDelay,
         optTextureTransparency = config.optTextureTransparency,
+        antiAfkInterval = config.antiAfkInterval,
+        autoReconnectDelay = config.autoReconnectDelay,
         evasiveSideHoldTime = config.evasiveSideHoldTime,
         orbitRadius = config.orbitRadius,
         orbitSpeed = config.orbitSpeed,
@@ -2523,6 +2823,7 @@ local function syncChoiceControls()
         walkSpeedMethod = config.walkSpeedMethod,
         jumpPowerMethod = config.jumpPowerMethod,
         flyMethod = config.flyMethod,
+        antiAfkMethod = config.antiAfkMethod,
     }
 
     for key, value in pairs(choiceControls) do
@@ -2548,6 +2849,7 @@ local function applyConfigData(data)
         config.walkSpeedMethod = normalizeOption(config.walkSpeedMethod, WALK_SPEED_METHODS, "Humanoid")
         config.jumpPowerMethod = normalizeOption(config.jumpPowerMethod, JUMP_POWER_METHODS, "JumpPower")
         config.flyMethod = normalizeOption(config.flyMethod, FLY_METHODS, "CFrame")
+        config.antiAfkMethod = normalizeOption(config.antiAfkMethod, ANTI_AFK_METHODS, "Mixed")
     end
 
     if type(data.positions) == "table" then
@@ -2695,6 +2997,122 @@ local function deleteConfig(name)
     settings.selectedConfig = "default"
     refreshConfigDropdown(settings.selectedConfig)
     return true
+end
+
+local function setLabelText(label, text)
+    if not label then
+        return
+    end
+
+    local textLabel = label:FindFirstChild("Text")
+    if textLabel then
+        textLabel.Text = text
+    end
+end
+
+local function readAutoLoadConfigName()
+    if not hasFileApi() then
+        return nil
+    end
+
+    local path = getAutoLoadPath()
+    if not isfile(path) then
+        return nil
+    end
+
+    local ok, content = pcall(readfile, path)
+    if not ok then
+        return nil
+    end
+
+    local name = tostring(content or ""):match("^%s*(.-)%s*$")
+    if name == "" then
+        return nil
+    end
+
+    return sanitizeConfigName(name)
+end
+
+local function updateAutoLoadLabel()
+    local userId = LocalPlayer and LocalPlayer.UserId or 0
+    local name = readAutoLoadConfigName()
+
+    if name then
+        setLabelText(autoLoadLabel, "Auto Load: " .. name .. " | UserId: " .. tostring(userId))
+    else
+        setLabelText(autoLoadLabel, "Auto Load: none | UserId: " .. tostring(userId))
+    end
+end
+
+local function setAutoLoadConfig(name)
+    if not hasFileApi() then
+        return false, "File API is not available in this executor"
+    end
+
+    ensureConfigFolder()
+
+    local safeName = sanitizeConfigName(name)
+    local configPath = getConfigPath(safeName)
+
+    if not isfile(configPath) then
+        local saveOk, saveErr = saveConfig(safeName)
+        if not saveOk then
+            return false, saveErr
+        end
+    end
+
+    local ok, err = pcall(writefile, getAutoLoadPath(), safeName)
+    if not ok then
+        return false, err
+    end
+
+    settings.selectedConfig = safeName
+    refreshConfigDropdown(safeName)
+    updateAutoLoadLabel()
+    return true
+end
+
+local function clearAutoLoadConfig()
+    if not hasFileApi() then
+        return false, "File API is not available in this executor"
+    end
+
+    ensureConfigFolder()
+
+    local path = getAutoLoadPath()
+
+    if type(delfile) == "function" and isfile(path) then
+        local ok, err = pcall(delfile, path)
+        if not ok then
+            return false, err
+        end
+    else
+        local ok, err = pcall(writefile, path, "")
+        if not ok then
+            return false, err
+        end
+    end
+
+    updateAutoLoadLabel()
+    return true
+end
+
+local function tryAutoLoadConfig()
+    local name = readAutoLoadConfigName()
+    updateAutoLoadLabel()
+
+    if not name then
+        return false, "No auto-load config set"
+    end
+
+    local ok, err = loadConfig(name)
+    updateAutoLoadLabel()
+
+    if not ok then
+        return false, err
+    end
+
+    return true, name
 end
 
 local function clearTargetHighlight()
@@ -3048,9 +3466,9 @@ controls.smartMoveSpeed = RageTab:AddSlider({
     end,
 })
 
-RageTab:AddSection("Combat")
+CombatTab:AddSection("Combat")
 
-controls.autoM1 = RageTab:AddToggle({
+controls.autoM1 = CombatTab:AddToggle({
     Name = "Auto M1",
     Description = "Left mouse click at 10 cps",
     Default = false,
@@ -3059,7 +3477,7 @@ controls.autoM1 = RageTab:AddToggle({
     end,
 })
 
-controls.backgroundM1 = RageTab:AddToggle({
+controls.backgroundM1 = CombatTab:AddToggle({
     Name = "Background M1",
     Description = "Virtual LMB with GUI guard",
     Default = false,
@@ -3068,7 +3486,7 @@ controls.backgroundM1 = RageTab:AddToggle({
     end,
 })
 
-controls.autoSkills = RageTab:AddToggle({
+controls.autoSkills = CombatTab:AddToggle({
     Name = "Auto Skills",
     Description = "Press 1-4 and activate first 4 tools",
     Default = false,
@@ -3077,7 +3495,7 @@ controls.autoSkills = RageTab:AddToggle({
     end,
 })
 
-controls.autoUltimate = RageTab:AddToggle({
+controls.autoUltimate = CombatTab:AddToggle({
     Name = "Auto Ultimate",
     Description = "Press G once per second",
     Default = false,
@@ -3086,7 +3504,7 @@ controls.autoUltimate = RageTab:AddToggle({
     end,
 })
 
-controls.autoBurst = RageTab:AddToggle({
+controls.autoBurst = CombatTab:AddToggle({
     Name = "Auto Burst",
     Description = "Spam R at 10 cps",
     Default = false,
@@ -3095,7 +3513,7 @@ controls.autoBurst = RageTab:AddToggle({
     end,
 })
 
-controls.autoDash = RageTab:AddToggle({
+controls.autoDash = CombatTab:AddToggle({
     Name = "Auto Dash/Wall Combo",
     Description = "Spam Q at 10 cps",
     Default = false,
@@ -3104,7 +3522,7 @@ controls.autoDash = RageTab:AddToggle({
     end,
 })
 
-controls.autoEvasive = RageTab:AddToggle({
+controls.autoEvasive = CombatTab:AddToggle({
     Name = "Auto Evasive",
     Description = "Hold D while pressing Q",
     Default = false,
@@ -3113,9 +3531,9 @@ controls.autoEvasive = RageTab:AddToggle({
     end,
 })
 
-RageTab:AddSection("Timings")
+CombatTab:AddSection("Timings")
 
-controls.autoM1Interval = RageTab:AddSlider({
+controls.autoM1Interval = CombatTab:AddSlider({
     Name = "M1 Delay",
     Min = 0.03,
     Max = 0.50,
@@ -3128,7 +3546,7 @@ controls.autoM1Interval = RageTab:AddSlider({
     end,
 })
 
-controls.autoSkillsInterval = RageTab:AddSlider({
+controls.autoSkillsInterval = CombatTab:AddSlider({
     Name = "Skill Delay",
     Min = 0.03,
     Max = 0.60,
@@ -3140,7 +3558,7 @@ controls.autoSkillsInterval = RageTab:AddSlider({
     end,
 })
 
-controls.autoBurstInterval = RageTab:AddSlider({
+controls.autoBurstInterval = CombatTab:AddSlider({
     Name = "Burst/Dash Delay",
     Min = 0.03,
     Max = 0.60,
@@ -3153,7 +3571,7 @@ controls.autoBurstInterval = RageTab:AddSlider({
     end,
 })
 
-controls.autoEvasiveInterval = RageTab:AddSlider({
+controls.autoEvasiveInterval = CombatTab:AddSlider({
     Name = "Evasive Delay",
     Min = 0.03,
     Max = 0.60,
@@ -3165,7 +3583,7 @@ controls.autoEvasiveInterval = RageTab:AddSlider({
     end,
 })
 
-controls.autoUltimateInterval = RageTab:AddSlider({
+controls.autoUltimateInterval = CombatTab:AddSlider({
     Name = "Ultimate Delay",
     Min = 0.30,
     Max = 5.00,
@@ -3623,9 +4041,50 @@ SettingsTab:AddButton({
             if controls.configName then
                 controls.configName:Set(settings.selectedConfig, true)
             end
+
+            if readAutoLoadConfigName() == sanitizeConfigName(name) then
+                clearAutoLoadConfig()
+            else
+                updateAutoLoadLabel()
+            end
+
             notifyStatus("Deleted config: " .. sanitizeConfigName(name))
         else
             notifyStatus("Delete failed: " .. tostring(err), true, 2.5)
+        end
+    end,
+})
+
+autoLoadLabel = SettingsTab:AddLabel("Auto Load: none | UserId: " .. tostring(LocalPlayer and LocalPlayer.UserId or 0))
+updateAutoLoadLabel()
+
+SettingsTab:AddButton({
+    Name = "Set as Auto Load",
+    Callback = function()
+        local name = controls.configName and controls.configName:Get() or settings.selectedConfig
+        local ok, err = setAutoLoadConfig(name)
+
+        if ok then
+            if controls.configName then
+                controls.configName:Set(settings.selectedConfig, true)
+            end
+
+            notifyStatus("Auto Load set: " .. settings.selectedConfig)
+        else
+            notifyStatus("Auto Load failed: " .. tostring(err), true, 2.5)
+        end
+    end,
+})
+
+SettingsTab:AddButton({
+    Name = "Clear Auto Load",
+    Callback = function()
+        local ok, err = clearAutoLoadConfig()
+
+        if ok then
+            notifyStatus("Auto Load cleared.")
+        else
+            notifyStatus("Clear failed: " .. tostring(err), true, 2.5)
         end
     end,
 })
@@ -3678,6 +4137,72 @@ controls.menuBind = SettingsTab:AddKeybind({
     end,
 })
 
+SettingsTab:AddSection("Session")
+
+controls.antiAfk = SettingsTab:AddToggle({
+    Name = "Anti-AFK",
+    Description = "Idle protection with fallback methods",
+    Default = state.antiAfk,
+    Callback = function(value)
+        setState("antiAfk", value)
+    end,
+})
+
+controls.antiAfkMethod = SettingsTab:AddDropdown({
+    Name = "Anti-AFK Method",
+    Options = ANTI_AFK_METHODS,
+    Default = config.antiAfkMethod,
+    Callback = function(value)
+        config.antiAfkMethod = normalizeOption(value, ANTI_AFK_METHODS, "Mixed")
+
+        if state.antiAfk then
+            performAntiAfk()
+        end
+    end,
+})
+
+controls.antiAfkInterval = SettingsTab:AddSlider({
+    Name = "Anti-AFK Pulse",
+    Min = 15,
+    Max = 600,
+    Default = config.antiAfkInterval,
+    Increment = 5,
+    Suffix = "s",
+    Callback = function(value)
+        config.antiAfkInterval = value
+    end,
+})
+
+controls.autoReconnect = SettingsTab:AddToggle({
+    Name = "Auto Reconnect",
+    Description = "Reconnect on kick/disconnect prompts",
+    Default = state.autoReconnect,
+    Callback = function(value)
+        setState("autoReconnect", value)
+    end,
+})
+
+controls.autoReconnectDelay = SettingsTab:AddSlider({
+    Name = "Reconnect Delay",
+    Min = 0,
+    Max = 30,
+    Default = config.autoReconnectDelay,
+    Increment = 0.5,
+    Suffix = "s",
+    Callback = function(value)
+        config.autoReconnectDelay = value
+    end,
+})
+
+controls.queueScriptOnTeleport = SettingsTab:AddToggle({
+    Name = "Queue Script on Reconnect",
+    Description = "Requires queue_on_teleport support",
+    Default = state.queueScriptOnTeleport,
+    Callback = function(value)
+        state.queueScriptOnTeleport = value == true
+    end,
+})
+
 SettingsTab:AddButton({
     Name = "Reset All Toggles",
     Callback = function()
@@ -3709,6 +4234,8 @@ SettingsTab:AddButton({
 
         disableAutoReset()
         disableAltPositionLock()
+        disableAntiAfk()
+        disableAutoReconnect()
         cleanupPlayerMovement()
         restoreAllOptimizations()
         clearTargetHighlight()
@@ -3777,6 +4304,16 @@ controls.antiVoidTriggerY = SettingsTab:AddSlider({
         config.antiVoidTriggerY = value
     end,
 })
+
+deferTask(function()
+    local ok, result = tryAutoLoadConfig()
+
+    if ok then
+        notifyStatus("Auto-loaded config: " .. tostring(result))
+    elseif result ~= "No auto-load config set" then
+        notifyStatus("Auto-load failed: " .. tostring(result), true, 2.5)
+    end
+end)
 end, function(err)
     if debug and debug.traceback then
         return debug.traceback(err)
