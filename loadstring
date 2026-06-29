@@ -1,1 +1,1 @@
-loadstring(game:HttpGet("https://cdn.jsdelivr.net/gh/sinmirka/BLASPHEMY@daf456c/roblox_rage_hub_client.lua"))()
+loadstring(game:HttpGet("https://cdn.jsdelivr.net/gh/sinmirka/BLASPHEMY@c92b35c/roblox_rage_hub_client.lua"))()
