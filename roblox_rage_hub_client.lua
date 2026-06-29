@@ -1,8 +1,8 @@
 -- Rage Hub Client
 -- Replace GUI_LIBRARY_URL with your raw GitHub link to roblox_prism_gui_library.lua.
 
-local GUI_LIBRARY_URL = "https://cdn.jsdelivr.net/gh/sinmirka/BLASPHEMY@50a1d39/roblox_prism_gui_library.lua"
-local REQUIRED_GUI_LIBRARY_VERSION = "1.3.0"
+local GUI_LIBRARY_URL = "https://cdn.jsdelivr.net/gh/sinmirka/BLASPHEMY@c95f3b0/roblox_prism_gui_library.lua"
+local REQUIRED_GUI_LIBRARY_VERSION = "1.3.1"
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -249,7 +249,6 @@ local state = {
     autoM1 = false,
     backgroundM1 = false,
     autoSkills = false,
-    backgroundSkills = false,
     autoUltimate = false,
     autoBurst = false,
     autoDash = false,
@@ -266,7 +265,6 @@ local config = {
     autoM1Interval = 0.10,
     backgroundM1Interval = 0.10,
     autoSkillsInterval = 0.10,
-    backgroundSkillsInterval = 0.12,
     autoUltimateInterval = 1.00,
     autoBurstInterval = 0.10,
     autoDashInterval = 0.10,
@@ -300,7 +298,6 @@ local stateKeys = {
     "autoM1",
     "backgroundM1",
     "autoSkills",
-    "backgroundSkills",
     "autoUltimate",
     "autoBurst",
     "autoDash",
@@ -316,7 +313,6 @@ local configKeys = {
     "autoM1Interval",
     "backgroundM1Interval",
     "autoSkillsInterval",
-    "backgroundSkillsInterval",
     "autoUltimateInterval",
     "autoBurstInterval",
     "autoDashInterval",
@@ -548,27 +544,20 @@ local function setState(name, value)
         startLoop(name, function()
             return config.backgroundM1Interval
         end, function()
-            activateTool()
+            if not activateTool() then
+                equipAndActivateSlot(1)
+            end
         end)
     elseif name == "autoSkills" then
         startLoop(name, function()
             return config.autoSkillsInterval
         end, function()
-            for _, keyCode in ipairs(skillKeys) do
+            for slot, keyCode in ipairs(skillKeys) do
                 if not state.autoSkills then
                     break
                 end
+
                 sendKey(keyCode)
-            end
-        end)
-    elseif name == "backgroundSkills" then
-        startLoop(name, function()
-            return config.backgroundSkillsInterval
-        end, function()
-            for slot = 1, 4 do
-                if not state.backgroundSkills then
-                    break
-                end
                 equipAndActivateSlot(slot)
             end
         end)
@@ -804,6 +793,27 @@ local function getTargetPlayer()
     end
 
     return getDynamicTarget()
+end
+
+local function hasActiveAttackMode()
+    return state.autoM1
+        or state.backgroundM1
+        or state.autoSkills
+        or state.autoUltimate
+        or state.autoBurst
+        or state.autoDash
+        or state.autoEvasive
+        or state.orbit
+        or state.smartOrbit
+        or state.cameraLock
+end
+
+local function getCurrentAttackTarget()
+    if not hasActiveAttackMode() then
+        return nil
+    end
+
+    return getTargetPlayer()
 end
 
 local function lockDynamicTarget()
@@ -1174,10 +1184,10 @@ local function clearTargetHighlight()
 end
 
 function updateTargetHighlight()
-    local target = getTargetPlayer()
+    local target = getCurrentAttackTarget()
     local character = target and target.Character
 
-    if not character then
+    if not character or not getTargetParts(target) then
         clearTargetHighlight()
         return
     end
@@ -1535,19 +1545,10 @@ controls.backgroundM1 = RageTab:AddToggle({
 
 controls.autoSkills = RageTab:AddToggle({
     Name = "Auto Skills",
-    Description = "Press keys 1, 2, 3, 4",
+    Description = "Press 1-4 and activate first 4 tools",
     Default = false,
     Callback = function(value)
         setState("autoSkills", value)
-    end,
-})
-
-controls.backgroundSkills = RageTab:AddToggle({
-    Name = "Background Skills",
-    Description = "Equip and activate first 4 tools",
-    Default = false,
-    Callback = function(value)
-        setState("backgroundSkills", value)
     end,
 })
 
@@ -1611,7 +1612,6 @@ controls.autoSkillsInterval = RageTab:AddSlider({
     Suffix = "s",
     Callback = function(value)
         config.autoSkillsInterval = value
-        config.backgroundSkillsInterval = value
     end,
 })
 
