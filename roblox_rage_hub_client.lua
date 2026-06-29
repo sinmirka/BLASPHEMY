@@ -406,12 +406,6 @@ local function activateTool(tool)
         tool:Activate()
     end)
 
-    task.delay(0.03, function()
-        pcall(function()
-            tool:Deactivate()
-        end)
-    end)
-
     return ok
 end
 
@@ -543,11 +537,7 @@ local function setState(name, value)
     elseif name == "backgroundM1" then
         startLoop(name, function()
             return config.backgroundM1Interval
-        end, function()
-            if not activateTool() then
-                equipAndActivateSlot(1)
-            end
-        end)
+        end, activateTool)
     elseif name == "autoSkills" then
         startLoop(name, function()
             return config.autoSkillsInterval
@@ -1536,7 +1526,7 @@ controls.autoM1 = RageTab:AddToggle({
 
 controls.backgroundM1 = RageTab:AddToggle({
     Name = "Background M1",
-    Description = "Tool:Activate at 10 cps",
+    Description = "Activate equipped M1 tool",
     Default = false,
     Callback = function(value)
         setState("backgroundM1", value)
