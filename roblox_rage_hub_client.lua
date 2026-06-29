@@ -432,12 +432,51 @@ local function getMousePosition()
     return math.floor(location.X), math.floor(location.Y)
 end
 
-local function sendVirtualMouseClick(blockGui)
+local function isPointOverWindow(x, y)
+    if not Window or not Window.Gui or not Window.Gui.Enabled or not Window.Main then
+        return false
+    end
+
+    local position = Window.Main.AbsolutePosition
+    local size = Window.Main.AbsoluteSize
+
+    return x >= position.X
+        and x <= position.X + size.X
+        and y >= position.Y
+        and y <= position.Y + size.Y
+end
+
+local function getSafeMousePosition()
+    local x, y = getMousePosition()
+    if not isPointOverWindow(x, y) then
+        return x, y
+    end
+
+    local camera = workspace.CurrentCamera
+    local viewport = camera and camera.ViewportSize or Vector2.new(1280, 720)
+    local candidates = {
+        { math.floor(viewport.X - 24), math.floor(viewport.Y - 24) },
+        { 24, math.floor(viewport.Y - 24) },
+        { math.floor(viewport.X - 24), 72 },
+        { 24, 72 },
+        { math.floor(viewport.X / 2), math.floor(viewport.Y / 2) },
+    }
+
+    for _, point in ipairs(candidates) do
+        if not isPointOverWindow(point[1], point[2]) then
+            return point[1], point[2]
+        end
+    end
+
+    return x, y
+end
+
+local function sendVirtualMouseClick(blockGui, safePoint)
     if blockGui and Window:IsMouseOver() then
         return false
     end
 
-    local x, y = getMousePosition()
+    local x, y = safePoint and getSafeMousePosition() or getMousePosition()
     local downOk = tryVirtualInput(function()
         VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, game, 0)
     end)
@@ -456,7 +495,7 @@ local function sendMouseClick()
 end
 
 local function sendBackgroundMouseClick()
-    return sendVirtualMouseClick(false)
+    return sendVirtualMouseClick(false, true)
 end
 
 local function sendKey(keyCode)
@@ -1532,7 +1571,7 @@ controls.autoM1 = RageTab:AddToggle({
 
 controls.backgroundM1 = RageTab:AddToggle({
     Name = "Background M1",
-    Description = "Virtual LMB without GUI block",
+    Description = "Virtual LMB away from GUI",
     Default = false,
     Callback = function(value)
         setState("backgroundM1", value)
