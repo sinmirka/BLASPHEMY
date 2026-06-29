@@ -1,12 +1,13 @@
 -- Rage Hub Client
 -- Replace GUI_LIBRARY_URL with your raw GitHub link to roblox_prism_gui_library.lua.
 
-local GUI_LIBRARY_URL = "https://cdn.jsdelivr.net/gh/sinmirka/BLASPHEMY@25fc6e3/roblox_prism_gui_library.lua"
-local REQUIRED_GUI_LIBRARY_VERSION = "1.1.1"
+local GUI_LIBRARY_URL = "https://cdn.jsdelivr.net/gh/sinmirka/BLASPHEMY@c17ea44/roblox_prism_gui_library.lua"
+local REQUIRED_GUI_LIBRARY_VERSION = "1.2.0"
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local HttpService = game:GetService("HttpService")
 
 local LocalPlayer = Players.LocalPlayer
 local ZERO_VECTOR = Vector3.new(0, 0, 0)
@@ -189,11 +190,12 @@ if not windowOk then
     return
 end
 
-local tabsOk, RageTab = pcall(function()
+local tabsOk, RageTab, SettingsTab = pcall(function()
     local rage = Window:AddTab("Rage")
     Window:AddTab("AutoFarm")
     Window:AddTab("Alt")
-    return rage
+    local settings = Window:AddTab("Settings")
+    return rage, settings
 end)
 
 if not tabsOk then
@@ -282,6 +284,52 @@ local config = {
 }
 
 local loopRunning = {}
+local controls = {}
+local settings = {
+    theme = "Dark",
+    selectedConfig = "default",
+    menuBind = "RightShift",
+}
+
+local stateKeys = {
+    "autoM1",
+    "backgroundM1",
+    "autoSkills",
+    "backgroundSkills",
+    "autoUltimate",
+    "autoBurst",
+    "autoDash",
+    "findLowPlayers",
+    "orbit",
+    "smartOrbit",
+    "cameraLock",
+    "antiVoid",
+}
+
+local configKeys = {
+    "autoM1Interval",
+    "backgroundM1Interval",
+    "autoSkillsInterval",
+    "backgroundSkillsInterval",
+    "autoUltimateInterval",
+    "autoBurstInterval",
+    "autoDashInterval",
+    "keyHoldTime",
+    "mouseHoldTime",
+    "orbitRadius",
+    "orbitSpeed",
+    "orbitHeight",
+    "smartRadius",
+    "smartInterval",
+    "smartMoveSpeed",
+    "camLockDistance",
+    "antiVoidSafeY",
+    "antiVoidTriggerY",
+}
+
+local CONFIG_ROOT = "BLASPHEMY"
+local CONFIG_DIR = CONFIG_ROOT .. "/configs"
+
 local targetDropdown = nil
 local targetHighlight = nil
 local lastSafeCFrame = nil
@@ -289,6 +337,7 @@ local nextHighlightUpdate = 0
 local orbitAngle = 0
 local smartPoint = nil
 local nextSmartPointAt = 0
+local updateTargetHighlight = nil
 
 local function getCharacter()
     return LocalPlayer and LocalPlayer.Character
@@ -606,6 +655,347 @@ local function lockDynamicTarget()
     end
 end
 
+local function keyToName(keyCode)
+    if keyCode and typeof(keyCode) == "EnumItem" then
+        return keyCode.Name
+    end
+
+    return nil
+end
+
+local function keyFromName(name)
+    if type(name) ~= "string" or name == "" then
+        return nil
+    end
+
+    for _, item in ipairs(Enum.KeyCode:GetEnumItems()) do
+        if item.Name == name then
+            return item
+        end
+    end
+
+    return nil
+end
+
+local function colorToData(color)
+    return {
+        r = math.floor(color.R * 255 + 0.5),
+        g = math.floor(color.G * 255 + 0.5),
+        b = math.floor(color.B * 255 + 0.5),
+    }
+end
+
+local function colorFromData(data, fallback)
+    if type(data) ~= "table" then
+        return fallback
+    end
+
+    local red = math.clamp(tonumber(data.r) or fallback.R * 255, 0, 255)
+    local green = math.clamp(tonumber(data.g) or fallback.G * 255, 0, 255)
+    local blue = math.clamp(tonumber(data.b) or fallback.B * 255, 0, 255)
+
+    return Color3.fromRGB(red, green, blue)
+end
+
+local function hasFileApi()
+    return type(writefile) == "function"
+        and type(readfile) == "function"
+        and type(isfile) == "function"
+end
+
+local function ensureConfigFolder()
+    if type(makefolder) ~= "function" then
+        return true
+    end
+
+    pcall(function()
+        if type(isfolder) ~= "function" or not isfolder(CONFIG_ROOT) then
+            makefolder(CONFIG_ROOT)
+        end
+    end)
+
+    pcall(function()
+        if type(isfolder) ~= "function" or not isfolder(CONFIG_DIR) then
+            makefolder(CONFIG_DIR)
+        end
+    end)
+
+    return true
+end
+
+local function sanitizeConfigName(name)
+    local cleaned = tostring(name or "default")
+        :gsub("[^%w%-%_ ]", "")
+        :gsub("%s+", "_")
+
+    if cleaned == "" then
+        cleaned = "default"
+    end
+
+    return cleaned
+end
+
+local function getConfigPath(name)
+    local safeName = sanitizeConfigName(name)
+
+    if type(makefolder) == "function" then
+        return CONFIG_DIR .. "/" .. safeName .. ".json"
+    end
+
+    return CONFIG_ROOT .. "_" .. safeName .. ".json"
+end
+
+local function listConfigNames()
+    local names = {}
+    local seen = {}
+
+    local function addName(name)
+        name = sanitizeConfigName(name)
+        if not seen[name] then
+            seen[name] = true
+            table.insert(names, name)
+        end
+    end
+
+    addName(settings.selectedConfig)
+
+    if type(listfiles) == "function" then
+        local canList = type(isfolder) ~= "function" or isfolder(CONFIG_DIR)
+        if canList then
+            local ok, files = pcall(listfiles, CONFIG_DIR)
+            if ok and type(files) == "table" then
+                for _, path in ipairs(files) do
+                    local name = tostring(path):match("([^/\\]+)%.json$")
+                    if name then
+                        addName(name)
+                    end
+                end
+            end
+        end
+    end
+
+    table.sort(names)
+
+    if #names == 0 then
+        addName("default")
+    end
+
+    return names
+end
+
+local function refreshConfigDropdown(selectedName)
+    if controls.configList then
+        controls.configList:SetOptions(listConfigNames(), sanitizeConfigName(selectedName or settings.selectedConfig))
+    end
+end
+
+local function notifyStatus(message, isError, duration)
+    setBootStatus(message, isError == true)
+    closeBootStatus(duration or 1.5)
+end
+
+local function collectConfigData()
+    local data = {
+        version = 1,
+        theme = settings.theme or Window:GetTheme(),
+        menuBind = keyToName(Window:GetToggleKey()),
+        targetBind = controls.targetBind and keyToName(controls.targetBind:Get()) or nil,
+        targetName = state.targetName,
+        states = {},
+        config = {},
+    }
+
+    for _, key in ipairs(stateKeys) do
+        data.states[key] = state[key] == true
+    end
+
+    for _, key in ipairs(configKeys) do
+        data.config[key] = config[key]
+    end
+
+    data.config.highlightColor = colorToData(config.highlightColor)
+
+    return data
+end
+
+local function syncNumericControls()
+    local numericControls = {
+        autoM1Interval = config.autoM1Interval,
+        autoSkillsInterval = config.autoSkillsInterval,
+        autoBurstInterval = config.autoBurstInterval,
+        autoUltimateInterval = config.autoUltimateInterval,
+        orbitRadius = config.orbitRadius,
+        orbitSpeed = config.orbitSpeed,
+        orbitHeight = config.orbitHeight,
+        smartRadius = config.smartRadius,
+        smartInterval = config.smartInterval,
+        smartMoveSpeed = config.smartMoveSpeed,
+        camLockDistance = config.camLockDistance,
+        keyHoldTime = config.keyHoldTime,
+        mouseHoldTime = config.mouseHoldTime,
+        antiVoidSafeY = config.antiVoidSafeY,
+        antiVoidTriggerY = config.antiVoidTriggerY,
+    }
+
+    for key, value in pairs(numericControls) do
+        if controls[key] then
+            controls[key]:Set(value, true)
+        end
+    end
+end
+
+local function applyConfigData(data)
+    if type(data) ~= "table" then
+        return false, "Config is not a table"
+    end
+
+    if type(data.config) == "table" then
+        for _, key in ipairs(configKeys) do
+            if data.config[key] ~= nil then
+                config[key] = data.config[key]
+            end
+        end
+
+        config.highlightColor = colorFromData(data.config.highlightColor, config.highlightColor)
+    end
+
+    if type(data.states) == "table" then
+        for _, key in ipairs(stateKeys) do
+            local enabled = data.states[key] == true
+            if controls[key] then
+                controls[key]:Set(enabled)
+            else
+                state[key] = enabled
+            end
+        end
+    end
+
+    if type(data.targetName) == "string" and data.targetName ~= "" then
+        state.targetName = data.targetName
+        smartPoint = nil
+
+        if targetDropdown then
+            targetDropdown:SetOptions(getTargetOptions(), state.targetName)
+        end
+    end
+
+    if controls.highlightColor then
+        controls.highlightColor:Set(config.highlightColor, true)
+    end
+
+    syncNumericControls()
+    updateTargetHighlight()
+
+    if type(data.theme) == "string" and Window:SetTheme(data.theme) then
+        settings.theme = data.theme
+        if controls.theme then
+            controls.theme:Set(data.theme, true)
+        end
+    end
+
+    local menuKey = keyFromName(data.menuBind)
+    if menuKey then
+        Window:SetToggleKey(menuKey)
+        settings.menuBind = menuKey.Name
+        if controls.menuBind then
+            controls.menuBind:Set(menuKey, true)
+        end
+    end
+
+    local targetKey = keyFromName(data.targetBind)
+    if controls.targetBind then
+        controls.targetBind:Set(targetKey, true)
+    end
+
+    return true
+end
+
+local function saveConfig(name)
+    if not hasFileApi() then
+        return false, "File API is not available in this executor"
+    end
+
+    ensureConfigFolder()
+
+    local safeName = sanitizeConfigName(name)
+    local encodedOk, encoded = pcall(function()
+        return HttpService:JSONEncode(collectConfigData())
+    end)
+
+    if not encodedOk then
+        return false, encoded
+    end
+
+    local ok, err = pcall(writefile, getConfigPath(safeName), encoded)
+    if not ok then
+        return false, err
+    end
+
+    settings.selectedConfig = safeName
+    return true
+end
+
+local function loadConfig(name)
+    if not hasFileApi() then
+        return false, "File API is not available in this executor"
+    end
+
+    local safeName = sanitizeConfigName(name)
+    local path = getConfigPath(safeName)
+
+    if not isfile(path) then
+        return false, "Config not found: " .. path
+    end
+
+    local readOk, content = pcall(readfile, path)
+    if not readOk then
+        return false, content
+    end
+
+    local decodeOk, decoded = pcall(function()
+        return HttpService:JSONDecode(content)
+    end)
+
+    if not decodeOk then
+        return false, decoded
+    end
+
+    local applyOk, applyErr = applyConfigData(decoded)
+    if not applyOk then
+        return false, applyErr
+    end
+
+    settings.selectedConfig = safeName
+    refreshConfigDropdown(safeName)
+    return true
+end
+
+local function deleteConfig(name)
+    if not hasFileApi() then
+        return false, "File API is not available in this executor"
+    end
+
+    if type(delfile) ~= "function" then
+        return false, "delfile is not available in this executor"
+    end
+
+    local safeName = sanitizeConfigName(name)
+    local path = getConfigPath(safeName)
+
+    if not isfile(path) then
+        return false, "Config not found: " .. path
+    end
+
+    local ok, err = pcall(delfile, path)
+    if not ok then
+        return false, err
+    end
+
+    settings.selectedConfig = "default"
+    refreshConfigDropdown(settings.selectedConfig)
+    return true
+end
+
 local function clearTargetHighlight()
     if targetHighlight then
         targetHighlight:Destroy()
@@ -613,7 +1003,7 @@ local function clearTargetHighlight()
     end
 end
 
-local function updateTargetHighlight()
+function updateTargetHighlight()
     local target = getTargetPlayer()
     local character = target and target.Character
 
@@ -734,8 +1124,9 @@ targetDropdown = RageTab:AddDropdown({
         smartPoint = nil
     end,
 })
+controls.targetDropdown = targetDropdown
 
-RageTab:AddKeybind({
+controls.targetBind = RageTab:AddKeybind({
     Name = "Target Bind",
     Default = nil,
     Callback = function()
@@ -762,7 +1153,7 @@ Players.PlayerRemoving:Connect(function()
     end)
 end)
 
-RageTab:AddToggle({
+controls.findLowPlayers = RageTab:AddToggle({
     Name = "Find Low Players",
     Description = "Prefer lowest-health target",
     Default = false,
@@ -772,7 +1163,7 @@ RageTab:AddToggle({
     end,
 })
 
-RageTab:AddToggle({
+controls.smartOrbit = RageTab:AddToggle({
     Name = "Smart Orbit",
     Description = "Jump between random points around target",
     Default = false,
@@ -782,7 +1173,7 @@ RageTab:AddToggle({
     end,
 })
 
-RageTab:AddToggle({
+controls.cameraLock = RageTab:AddToggle({
     Name = "Camera Lock on Target",
     Description = "Aim camera at selected target",
     Default = false,
@@ -791,7 +1182,7 @@ RageTab:AddToggle({
     end,
 })
 
-RageTab:AddToggle({
+controls.antiVoid = RageTab:AddToggle({
     Name = "Enable Anti-Void",
     Description = "Return to last safe position if falling",
     Default = false,
@@ -800,7 +1191,7 @@ RageTab:AddToggle({
     end,
 })
 
-RageTab:AddColorPicker({
+controls.highlightColor = RageTab:AddColorPicker({
     Name = "Highlight Customization",
     Default = config.highlightColor,
     Callback = function(value)
@@ -811,7 +1202,7 @@ RageTab:AddColorPicker({
 
 RageTab:AddSection("Movement")
 
-RageTab:AddToggle({
+controls.orbit = RageTab:AddToggle({
     Name = "Orbit",
     Description = "Spin around selected target",
     Default = false,
@@ -823,7 +1214,7 @@ RageTab:AddToggle({
     end,
 })
 
-RageTab:AddSlider({
+controls.orbitRadius = RageTab:AddSlider({
     Name = "Orbit Distance",
     Min = 1,
     Max = 50,
@@ -835,7 +1226,7 @@ RageTab:AddSlider({
     end,
 })
 
-RageTab:AddSlider({
+controls.orbitSpeed = RageTab:AddSlider({
     Name = "Orbit Rotation Speed",
     Min = 2,
     Max = 100,
@@ -847,7 +1238,7 @@ RageTab:AddSlider({
     end,
 })
 
-RageTab:AddSlider({
+controls.camLockDistance = RageTab:AddSlider({
     Name = "CamLock Distance",
     Min = 1,
     Max = 50,
@@ -859,7 +1250,7 @@ RageTab:AddSlider({
     end,
 })
 
-RageTab:AddSlider({
+controls.orbitHeight = RageTab:AddSlider({
     Name = "Orbit Height",
     Min = -8,
     Max = 12,
@@ -872,7 +1263,7 @@ RageTab:AddSlider({
     end,
 })
 
-RageTab:AddSlider({
+controls.smartRadius = RageTab:AddSlider({
     Name = "Smart Radius",
     Min = 4,
     Max = 26,
@@ -885,7 +1276,7 @@ RageTab:AddSlider({
     end,
 })
 
-RageTab:AddSlider({
+controls.smartInterval = RageTab:AddSlider({
     Name = "Smart Swap Delay",
     Min = 0.08,
     Max = 1.20,
@@ -897,7 +1288,7 @@ RageTab:AddSlider({
     end,
 })
 
-RageTab:AddSlider({
+controls.smartMoveSpeed = RageTab:AddSlider({
     Name = "Smart Move Speed",
     Min = 6,
     Max = 60,
@@ -911,7 +1302,7 @@ RageTab:AddSlider({
 
 RageTab:AddSection("Combat")
 
-RageTab:AddToggle({
+controls.autoM1 = RageTab:AddToggle({
     Name = "Auto M1",
     Description = "Left mouse click at 10 cps",
     Default = false,
@@ -920,7 +1311,7 @@ RageTab:AddToggle({
     end,
 })
 
-RageTab:AddToggle({
+controls.backgroundM1 = RageTab:AddToggle({
     Name = "Background M1",
     Description = "Tool:Activate at 10 cps",
     Default = false,
@@ -929,7 +1320,7 @@ RageTab:AddToggle({
     end,
 })
 
-RageTab:AddToggle({
+controls.autoSkills = RageTab:AddToggle({
     Name = "Auto Skills",
     Description = "Press keys 1, 2, 3, 4",
     Default = false,
@@ -938,7 +1329,7 @@ RageTab:AddToggle({
     end,
 })
 
-RageTab:AddToggle({
+controls.backgroundSkills = RageTab:AddToggle({
     Name = "Background Skills",
     Description = "Equip and activate first 4 tools",
     Default = false,
@@ -947,7 +1338,7 @@ RageTab:AddToggle({
     end,
 })
 
-RageTab:AddToggle({
+controls.autoUltimate = RageTab:AddToggle({
     Name = "Auto Ultimate",
     Description = "Press G once per second",
     Default = false,
@@ -956,7 +1347,7 @@ RageTab:AddToggle({
     end,
 })
 
-RageTab:AddToggle({
+controls.autoBurst = RageTab:AddToggle({
     Name = "Auto Burst",
     Description = "Spam R at 10 cps",
     Default = false,
@@ -965,7 +1356,7 @@ RageTab:AddToggle({
     end,
 })
 
-RageTab:AddToggle({
+controls.autoDash = RageTab:AddToggle({
     Name = "Auto Dash/Wall Combo",
     Description = "Spam Q at 10 cps",
     Default = false,
@@ -976,7 +1367,7 @@ RageTab:AddToggle({
 
 RageTab:AddSection("Timings")
 
-RageTab:AddSlider({
+controls.autoM1Interval = RageTab:AddSlider({
     Name = "M1 Delay",
     Min = 0.03,
     Max = 0.50,
@@ -989,7 +1380,7 @@ RageTab:AddSlider({
     end,
 })
 
-RageTab:AddSlider({
+controls.autoSkillsInterval = RageTab:AddSlider({
     Name = "Skill Delay",
     Min = 0.03,
     Max = 0.60,
@@ -1002,7 +1393,7 @@ RageTab:AddSlider({
     end,
 })
 
-RageTab:AddSlider({
+controls.autoBurstInterval = RageTab:AddSlider({
     Name = "Burst/Dash Delay",
     Min = 0.03,
     Max = 0.60,
@@ -1015,7 +1406,7 @@ RageTab:AddSlider({
     end,
 })
 
-RageTab:AddSlider({
+controls.autoUltimateInterval = RageTab:AddSlider({
     Name = "Ultimate Delay",
     Min = 0.30,
     Max = 5.00,
@@ -1024,6 +1415,221 @@ RageTab:AddSlider({
     Suffix = "s",
     Callback = function(value)
         config.autoUltimateInterval = value
+    end,
+})
+
+SettingsTab:AddSection("Configs")
+
+controls.configName = SettingsTab:AddInput({
+    Name = "Config Name",
+    Placeholder = "default",
+    Default = settings.selectedConfig,
+    Callback = function(value)
+        settings.selectedConfig = sanitizeConfigName(value)
+        refreshConfigDropdown(settings.selectedConfig)
+    end,
+})
+
+controls.configList = SettingsTab:AddDropdown({
+    Name = "Saved Configs",
+    Options = listConfigNames(),
+    Default = settings.selectedConfig,
+    Callback = function(value)
+        settings.selectedConfig = sanitizeConfigName(value)
+        if controls.configName then
+            controls.configName:Set(settings.selectedConfig, true)
+        end
+    end,
+})
+
+SettingsTab:AddButton({
+    Name = "Refresh Config List",
+    Callback = function()
+        refreshConfigDropdown(settings.selectedConfig)
+        notifyStatus("Config list refreshed.")
+    end,
+})
+
+SettingsTab:AddButton({
+    Name = "Save Config",
+    Callback = function()
+        local name = controls.configName and controls.configName:Get() or settings.selectedConfig
+        local ok, err = saveConfig(name)
+
+        if ok then
+            if controls.configName then
+                controls.configName:Set(settings.selectedConfig, true)
+            end
+            refreshConfigDropdown(settings.selectedConfig)
+            notifyStatus("Saved config: " .. settings.selectedConfig)
+        else
+            notifyStatus("Save failed: " .. tostring(err), true, 2.5)
+        end
+    end,
+})
+
+SettingsTab:AddButton({
+    Name = "Load Config",
+    Callback = function()
+        local name = settings.selectedConfig
+        local ok, err = loadConfig(name)
+
+        if ok then
+            if controls.configName then
+                controls.configName:Set(settings.selectedConfig, true)
+            end
+            notifyStatus("Loaded config: " .. settings.selectedConfig)
+        else
+            notifyStatus("Load failed: " .. tostring(err), true, 2.5)
+        end
+    end,
+})
+
+SettingsTab:AddButton({
+    Name = "Delete Config",
+    Callback = function()
+        local name = settings.selectedConfig
+        local ok, err = deleteConfig(name)
+
+        if ok then
+            if controls.configName then
+                controls.configName:Set(settings.selectedConfig, true)
+            end
+            notifyStatus("Deleted config: " .. sanitizeConfigName(name))
+        else
+            notifyStatus("Delete failed: " .. tostring(err), true, 2.5)
+        end
+    end,
+})
+
+SettingsTab:AddButton({
+    Name = "Copy Config JSON",
+    Callback = function()
+        if type(setclipboard) ~= "function" then
+            notifyStatus("setclipboard is not available in this executor", true, 2.5)
+            return
+        end
+
+        local ok, encoded = pcall(function()
+            return HttpService:JSONEncode(collectConfigData())
+        end)
+
+        if not ok then
+            notifyStatus("Copy failed: " .. tostring(encoded), true, 2.5)
+            return
+        end
+
+        setclipboard(encoded)
+        notifyStatus("Config JSON copied.")
+    end,
+})
+
+SettingsTab:AddSection("Interface")
+
+controls.theme = SettingsTab:AddDropdown({
+    Name = "GUI Theme",
+    Options = Window:GetThemeNames(),
+    Default = settings.theme,
+    Callback = function(value)
+        local themeName = value or "Dark"
+        if Window:SetTheme(themeName) then
+            settings.theme = themeName
+        end
+    end,
+})
+
+controls.menuBind = SettingsTab:AddKeybind({
+    Name = "Hide GUI Bind",
+    Default = Enum.KeyCode.RightShift,
+    Changed = function(keyCode)
+        local nextKey = keyCode or Enum.KeyCode.RightShift
+        Window:SetToggleKey(nextKey)
+        settings.menuBind = nextKey.Name
+        notifyStatus("Hide bind: " .. nextKey.Name)
+    end,
+})
+
+SettingsTab:AddButton({
+    Name = "Reset All Toggles",
+    Callback = function()
+        for _, key in ipairs(stateKeys) do
+            if controls[key] then
+                controls[key]:Set(false)
+            else
+                state[key] = false
+            end
+        end
+
+        notifyStatus("All toggles disabled.")
+    end,
+})
+
+SettingsTab:AddButton({
+    Name = "Show Loader Status",
+    Callback = function()
+        notifyStatus("BLASPHEMY is running.")
+    end,
+})
+
+SettingsTab:AddButton({
+    Name = "Destroy GUI",
+    Callback = function()
+        for _, key in ipairs(stateKeys) do
+            state[key] = false
+        end
+
+        clearTargetHighlight()
+        Window:Destroy()
+    end,
+})
+
+SettingsTab:AddSection("Advanced")
+
+controls.keyHoldTime = SettingsTab:AddSlider({
+    Name = "Key Hold Time",
+    Min = 0.005,
+    Max = 0.080,
+    Default = config.keyHoldTime,
+    Increment = 0.005,
+    Suffix = "s",
+    Callback = function(value)
+        config.keyHoldTime = value
+    end,
+})
+
+controls.mouseHoldTime = SettingsTab:AddSlider({
+    Name = "Mouse Hold Time",
+    Min = 0.005,
+    Max = 0.080,
+    Default = config.mouseHoldTime,
+    Increment = 0.005,
+    Suffix = "s",
+    Callback = function(value)
+        config.mouseHoldTime = value
+    end,
+})
+
+controls.antiVoidSafeY = SettingsTab:AddSlider({
+    Name = "Anti-Void Safe Y",
+    Min = -50,
+    Max = 20,
+    Default = config.antiVoidSafeY,
+    Increment = 1,
+    Suffix = "y",
+    Callback = function(value)
+        config.antiVoidSafeY = value
+    end,
+})
+
+controls.antiVoidTriggerY = SettingsTab:AddSlider({
+    Name = "Anti-Void Trigger Y",
+    Min = -120,
+    Max = -5,
+    Default = config.antiVoidTriggerY,
+    Increment = 1,
+    Suffix = "y",
+    Callback = function(value)
+        config.antiVoidTriggerY = value
     end,
 })
 end, function(err)
