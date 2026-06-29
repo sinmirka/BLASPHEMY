@@ -9,7 +9,7 @@ A lightweight Roblox client script hub with a bundled GUI library loader.
 Copy and execute this:
 
 ```lua
-loadstring(game:HttpGet("https://cdn.jsdelivr.net/gh/sinmirka/BLASPHEMY@39c78b6/roblox_rage_hub_client.lua"))()
+loadstring(game:HttpGet("https://cdn.jsdelivr.net/gh/sinmirka/BLASPHEMY@9448de5/roblox_rage_hub_client.lua"))()
 ```
 
 ## Files
