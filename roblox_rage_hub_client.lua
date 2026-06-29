@@ -445,12 +445,13 @@ end
 
 createBlasphemyWatermark()
 
-local tabsOk, RageTab, AutoFarmTab, AltTab, SettingsTab = pcall(function()
+local tabsOk, RageTab, PlayerTab, AutoFarmTab, AltTab, SettingsTab = pcall(function()
     local rage = Window:AddTab("Rage")
+    local player = Window:AddTab("Player")
     local autoFarm = Window:AddTab("AutoFarm")
     local alt = Window:AddTab("Alt")
     local settings = Window:AddTab("Settings")
-    return rage, autoFarm, alt, settings
+    return rage, player, autoFarm, alt, settings
 end)
 
 if not tabsOk then
@@ -508,6 +509,9 @@ local state = {
     autoBurst = false,
     autoDash = false,
     autoEvasive = false,
+    playerWalkSpeed = false,
+    playerJumpPower = false,
+    playerFly = false,
     autoFarmPositionLock = false,
     altAutoReset = false,
     altPositionLock = false,
@@ -529,6 +533,12 @@ local config = {
     autoEvasiveInterval = 0.10,
     autoFarmTeleportInterval = 0.12,
     altTeleportInterval = 0.12,
+    walkSpeedValue = 32,
+    walkSpeedMethod = "Humanoid",
+    jumpPowerValue = 75,
+    jumpPowerMethod = "JumpPower",
+    flySpeed = 55,
+    flyMethod = "CFrame",
     evasiveSideHoldTime = 0.045,
     keyHoldTime = 0.015,
     mouseHoldTime = 0.012,
@@ -554,6 +564,10 @@ local settings = {
 local targetList = {}
 local friendList = {}
 
+local WALK_SPEED_METHODS = { "Humanoid", "CFrame", "Velocity" }
+local JUMP_POWER_METHODS = { "JumpPower", "JumpHeight", "Velocity Boost" }
+local FLY_METHODS = { "CFrame", "Velocity", "BodyMover" }
+
 local stateKeys = {
     "autoM1",
     "backgroundM1",
@@ -562,6 +576,9 @@ local stateKeys = {
     "autoBurst",
     "autoDash",
     "autoEvasive",
+    "playerWalkSpeed",
+    "playerJumpPower",
+    "playerFly",
     "autoFarmPositionLock",
     "altAutoReset",
     "altPositionLock",
@@ -582,6 +599,12 @@ local configKeys = {
     "autoEvasiveInterval",
     "autoFarmTeleportInterval",
     "altTeleportInterval",
+    "walkSpeedValue",
+    "walkSpeedMethod",
+    "jumpPowerValue",
+    "jumpPowerMethod",
+    "flySpeed",
+    "flyMethod",
     "evasiveSideHoldTime",
     "keyHoldTime",
     "mouseHoldTime",
@@ -607,6 +630,10 @@ local autoFarmPositionLabel = nil
 local altPositionLabel = nil
 local autoResetConnection = nil
 local autoResetVersion = 0
+local flyBodyVelocity = nil
+local flyBodyGyro = nil
+local flyBodyRoot = nil
+local lastJumpBoostAt = 0
 local lastSafeCFrame = nil
 local nextHighlightUpdate = 0
 local orbitAngle = 0
@@ -803,6 +830,305 @@ local function disableAutoReset()
     end
 end
 
+local originalHumanoidValues = setmetatable({}, { __mode = "k" })
+
+local function getOriginalHumanoidValues(humanoid)
+    if not humanoid then
+        return nil
+    end
+
+    if not originalHumanoidValues[humanoid] then
+        originalHumanoidValues[humanoid] = {
+            WalkSpeed = humanoid.WalkSpeed,
+            JumpPower = humanoid.JumpPower,
+            JumpHeight = humanoid.JumpHeight,
+            UseJumpPower = humanoid.UseJumpPower,
+        }
+    end
+
+    return originalHumanoidValues[humanoid]
+end
+
+local function restoreWalkSpeed()
+    local humanoid = getHumanoid()
+    local original = getOriginalHumanoidValues(humanoid)
+
+    if humanoid and original then
+        pcall(function()
+            humanoid.WalkSpeed = original.WalkSpeed
+        end)
+    end
+end
+
+local function restoreJumpPower()
+    local humanoid = getHumanoid()
+    local original = getOriginalHumanoidValues(humanoid)
+
+    if humanoid and original then
+        pcall(function()
+            humanoid.UseJumpPower = original.UseJumpPower
+        end)
+
+        pcall(function()
+            humanoid.JumpPower = original.JumpPower
+        end)
+
+        pcall(function()
+            humanoid.JumpHeight = original.JumpHeight
+        end)
+    end
+end
+
+local function cleanupFlyObjects()
+    if flyBodyVelocity then
+        flyBodyVelocity:Destroy()
+        flyBodyVelocity = nil
+    end
+
+    if flyBodyGyro then
+        flyBodyGyro:Destroy()
+        flyBodyGyro = nil
+    end
+
+    flyBodyRoot = nil
+end
+
+local function cleanupPlayerMovement()
+    cleanupFlyObjects()
+    restoreWalkSpeed()
+    restoreJumpPower()
+end
+
+local function isOption(value, options)
+    for _, option in ipairs(options) do
+        if value == option then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function normalizeOption(value, options, fallback)
+    if isOption(value, options) then
+        return value
+    end
+
+    return fallback
+end
+
+local function getFlyInputVector()
+    if UserInputService:GetFocusedTextBox() then
+        return ZERO_VECTOR
+    end
+
+    local camera = workspace.CurrentCamera
+    if not camera then
+        return ZERO_VECTOR
+    end
+
+    local cameraCFrame = camera.CFrame
+    local direction = ZERO_VECTOR
+
+    if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+        direction = direction + cameraCFrame.LookVector
+    end
+
+    if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+        direction = direction - cameraCFrame.LookVector
+    end
+
+    if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+        direction = direction + cameraCFrame.RightVector
+    end
+
+    if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+        direction = direction - cameraCFrame.RightVector
+    end
+
+    if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+        direction = direction + Vector3.new(0, 1, 0)
+    end
+
+    if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl)
+        or UserInputService:IsKeyDown(Enum.KeyCode.RightControl)
+        or UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+        direction = direction - Vector3.new(0, 1, 0)
+    end
+
+    if direction.Magnitude > 1 then
+        return direction.Unit
+    end
+
+    return direction
+end
+
+local function ensureFlyBodyMovers(root)
+    if flyBodyRoot ~= root then
+        cleanupFlyObjects()
+    end
+
+    if not flyBodyVelocity then
+        flyBodyVelocity = Instance.new("BodyVelocity")
+        flyBodyVelocity.Name = "BlasphemyFlyVelocity"
+        flyBodyVelocity.MaxForce = Vector3.new(1, 1, 1) * 900000
+        flyBodyVelocity.P = 1250
+        flyBodyVelocity.Parent = root
+    end
+
+    if not flyBodyGyro then
+        flyBodyGyro = Instance.new("BodyGyro")
+        flyBodyGyro.Name = "BlasphemyFlyGyro"
+        flyBodyGyro.MaxTorque = Vector3.new(1, 1, 1) * 900000
+        flyBodyGyro.P = 9000
+        flyBodyGyro.D = 420
+        flyBodyGyro.Parent = root
+    end
+
+    flyBodyRoot = root
+end
+
+local function applyWalkSpeed(deltaTime)
+    if not state.playerWalkSpeed or state.playerFly then
+        return
+    end
+
+    local humanoid = getHumanoid()
+    local root = getRoot()
+    if not humanoid then
+        return
+    end
+
+    local original = getOriginalHumanoidValues(humanoid)
+    local method = normalizeOption(config.walkSpeedMethod, WALK_SPEED_METHODS, "Humanoid")
+    local speed = math.max(0, tonumber(config.walkSpeedValue) or 0)
+
+    if method == "Humanoid" then
+        humanoid.WalkSpeed = speed
+        return
+    end
+
+    if method == "CFrame" then
+        humanoid.WalkSpeed = original and original.WalkSpeed or humanoid.WalkSpeed
+
+        if root and humanoid.MoveDirection.Magnitude > 0 then
+            local baseSpeed = original and original.WalkSpeed or 16
+            local extraSpeed = math.max(speed - baseSpeed, 0)
+            root.CFrame = root.CFrame + (humanoid.MoveDirection.Unit * extraSpeed * deltaTime)
+        end
+
+        return
+    end
+
+    if method == "Velocity" and root then
+        humanoid.WalkSpeed = 0
+
+        local currentVelocity = root.AssemblyLinearVelocity
+        local moveDirection = humanoid.MoveDirection
+
+        if moveDirection.Magnitude > 0 then
+            root.AssemblyLinearVelocity = Vector3.new(
+                moveDirection.Unit.X * speed,
+                currentVelocity.Y,
+                moveDirection.Unit.Z * speed
+            )
+        else
+            root.AssemblyLinearVelocity = Vector3.new(0, currentVelocity.Y, 0)
+        end
+    end
+end
+
+local function applyJumpPower()
+    if not state.playerJumpPower then
+        return
+    end
+
+    local humanoid = getHumanoid()
+    local root = getRoot()
+    if not humanoid then
+        return
+    end
+
+    getOriginalHumanoidValues(humanoid)
+
+    local method = normalizeOption(config.jumpPowerMethod, JUMP_POWER_METHODS, "JumpPower")
+    local power = math.max(0, tonumber(config.jumpPowerValue) or 0)
+
+    if method == "JumpPower" then
+        pcall(function()
+            humanoid.UseJumpPower = true
+        end)
+
+        humanoid.JumpPower = power
+        return
+    end
+
+    if method == "JumpHeight" then
+        pcall(function()
+            humanoid.UseJumpPower = false
+        end)
+
+        pcall(function()
+            humanoid.JumpHeight = math.max(1, power / 7)
+        end)
+
+        return
+    end
+
+    if method == "Velocity Boost" and root and not UserInputService:GetFocusedTextBox() then
+        local wantsJump = humanoid.Jump or UserInputService:IsKeyDown(Enum.KeyCode.Space)
+        local grounded = humanoid.FloorMaterial ~= Enum.Material.Air
+
+        if wantsJump and grounded and os.clock() - lastJumpBoostAt >= 0.18 then
+            local velocity = root.AssemblyLinearVelocity
+            root.AssemblyLinearVelocity = Vector3.new(velocity.X, power, velocity.Z)
+            lastJumpBoostAt = os.clock()
+        end
+    end
+end
+
+local function applyFly(deltaTime)
+    if not state.playerFly then
+        return
+    end
+
+    local root = getRoot()
+    local camera = workspace.CurrentCamera
+    if not root or not camera then
+        cleanupFlyObjects()
+        return
+    end
+
+    local method = normalizeOption(config.flyMethod, FLY_METHODS, "CFrame")
+    local speed = math.max(0, tonumber(config.flySpeed) or 0)
+    local moveDirection = getFlyInputVector()
+
+    pcall(function()
+        root.AssemblyAngularVelocity = ZERO_VECTOR
+    end)
+
+    if method == "CFrame" then
+        cleanupFlyObjects()
+        root.AssemblyLinearVelocity = ZERO_VECTOR
+
+        local nextPosition = root.Position + (moveDirection * speed * deltaTime)
+        root.CFrame = CFrame.new(nextPosition, nextPosition + camera.CFrame.LookVector)
+        return
+    end
+
+    if method == "Velocity" then
+        cleanupFlyObjects()
+        root.AssemblyLinearVelocity = moveDirection * speed
+        return
+    end
+
+    if method == "BodyMover" then
+        ensureFlyBodyMovers(root)
+        flyBodyVelocity.Velocity = moveDirection * speed
+        flyBodyGyro.CFrame = camera.CFrame
+    end
+end
+
 local function getEquippedTool()
     local character = getCharacter()
     if not character then
@@ -986,6 +1312,21 @@ local function setState(name, value)
             disableAutoReset()
         end
 
+        return
+    end
+
+    if name == "playerWalkSpeed" and not state[name] then
+        restoreWalkSpeed()
+        return
+    end
+
+    if name == "playerJumpPower" and not state[name] then
+        restoreJumpPower()
+        return
+    end
+
+    if name == "playerFly" and not state[name] then
+        cleanupFlyObjects()
         return
     end
 
@@ -1483,7 +1824,7 @@ end
 
 local function collectConfigData()
     local data = {
-        version = 2,
+        version = 3,
         theme = settings.theme or Window:GetTheme(),
         menuBind = keyToName(Window:GetToggleKey()),
         targetBind = controls.targetBind and keyToName(controls.targetBind:Get()) or nil,
@@ -1519,6 +1860,9 @@ local function syncNumericControls()
         autoEvasiveInterval = config.autoEvasiveInterval,
         autoFarmTeleportInterval = config.autoFarmTeleportInterval,
         altTeleportInterval = config.altTeleportInterval,
+        walkSpeedValue = config.walkSpeedValue,
+        jumpPowerValue = config.jumpPowerValue,
+        flySpeed = config.flySpeed,
         evasiveSideHoldTime = config.evasiveSideHoldTime,
         orbitRadius = config.orbitRadius,
         orbitSpeed = config.orbitSpeed,
@@ -1540,6 +1884,20 @@ local function syncNumericControls()
     end
 end
 
+local function syncChoiceControls()
+    local choiceControls = {
+        walkSpeedMethod = config.walkSpeedMethod,
+        jumpPowerMethod = config.jumpPowerMethod,
+        flyMethod = config.flyMethod,
+    }
+
+    for key, value in pairs(choiceControls) do
+        if controls[key] then
+            controls[key]:Set(value, true)
+        end
+    end
+end
+
 local function applyConfigData(data)
     if type(data) ~= "table" then
         return false, "Config is not a table"
@@ -1553,6 +1911,9 @@ local function applyConfigData(data)
         end
 
         config.highlightColor = colorFromData(data.config.highlightColor, config.highlightColor)
+        config.walkSpeedMethod = normalizeOption(config.walkSpeedMethod, WALK_SPEED_METHODS, "Humanoid")
+        config.jumpPowerMethod = normalizeOption(config.jumpPowerMethod, JUMP_POWER_METHODS, "JumpPower")
+        config.flyMethod = normalizeOption(config.flyMethod, FLY_METHODS, "CFrame")
     end
 
     if type(data.positions) == "table" then
@@ -1589,6 +1950,7 @@ local function applyConfigData(data)
     end
 
     syncNumericControls()
+    syncChoiceControls()
     updateTargetHighlight()
 
     if type(data.theme) == "string" and Window:SetTheme(data.theme) then
@@ -1743,6 +2105,10 @@ end
 
 RunService.Heartbeat:Connect(function(deltaTime)
     local root = getRoot()
+
+    applyWalkSpeed(deltaTime)
+    applyJumpPower()
+    applyFly(deltaTime)
 
     if root then
         if root.Position.Y > config.antiVoidSafeY then
@@ -2177,6 +2543,111 @@ controls.autoUltimateInterval = RageTab:AddSlider({
     end,
 })
 
+PlayerTab:AddSection("WalkSpeed")
+
+controls.playerWalkSpeed = PlayerTab:AddToggle({
+    Name = "WalkSpeed",
+    Description = "Custom movement speed",
+    Default = false,
+    Callback = function(value)
+        setState("playerWalkSpeed", value)
+    end,
+})
+
+controls.walkSpeedMethod = PlayerTab:AddDropdown({
+    Name = "Walk Method",
+    Options = WALK_SPEED_METHODS,
+    Default = config.walkSpeedMethod,
+    Callback = function(value)
+        config.walkSpeedMethod = normalizeOption(value, WALK_SPEED_METHODS, "Humanoid")
+
+        if state.playerWalkSpeed then
+            restoreWalkSpeed()
+        end
+    end,
+})
+
+controls.walkSpeedValue = PlayerTab:AddSlider({
+    Name = "Walk Speed",
+    Min = 8,
+    Max = 160,
+    Default = config.walkSpeedValue,
+    Increment = 1,
+    Suffix = "sps",
+    Callback = function(value)
+        config.walkSpeedValue = value
+    end,
+})
+
+PlayerTab:AddSection("Jump")
+
+controls.playerJumpPower = PlayerTab:AddToggle({
+    Name = "Jump Power",
+    Description = "Custom jump strength",
+    Default = false,
+    Callback = function(value)
+        setState("playerJumpPower", value)
+    end,
+})
+
+controls.jumpPowerMethod = PlayerTab:AddDropdown({
+    Name = "Jump Method",
+    Options = JUMP_POWER_METHODS,
+    Default = config.jumpPowerMethod,
+    Callback = function(value)
+        config.jumpPowerMethod = normalizeOption(value, JUMP_POWER_METHODS, "JumpPower")
+
+        if state.playerJumpPower then
+            restoreJumpPower()
+        end
+    end,
+})
+
+controls.jumpPowerValue = PlayerTab:AddSlider({
+    Name = "Jump Value",
+    Min = 20,
+    Max = 250,
+    Default = config.jumpPowerValue,
+    Increment = 1,
+    Suffix = "power",
+    Callback = function(value)
+        config.jumpPowerValue = value
+    end,
+})
+
+PlayerTab:AddSection("Fly")
+
+controls.playerFly = PlayerTab:AddToggle({
+    Name = "Fly",
+    Description = "WASD, Space up, Ctrl/Shift down",
+    Default = false,
+    Callback = function(value)
+        setState("playerFly", value)
+    end,
+})
+
+controls.flyMethod = PlayerTab:AddDropdown({
+    Name = "Fly Method",
+    Options = FLY_METHODS,
+    Default = config.flyMethod,
+    Callback = function(value)
+        config.flyMethod = normalizeOption(value, FLY_METHODS, "CFrame")
+        cleanupFlyObjects()
+    end,
+})
+
+controls.flySpeed = PlayerTab:AddSlider({
+    Name = "Fly Speed",
+    Min = 10,
+    Max = 200,
+    Default = config.flySpeed,
+    Increment = 1,
+    Suffix = "sps",
+    Callback = function(value)
+        config.flySpeed = value
+    end,
+})
+
 AutoFarmTab:AddSection("Position")
 
 autoFarmPositionLabel = AutoFarmTab:AddLabel("Saved: none")
@@ -2432,6 +2903,7 @@ SettingsTab:AddButton({
         end
 
         disableAutoReset()
+        cleanupPlayerMovement()
         clearTargetHighlight()
         Window:Destroy()
     end,
