@@ -9,12 +9,12 @@ A lightweight Roblox client script hub with a bundled GUI library loader.
 Copy and execute this:
 
 ```lua
-loadstring(game:HttpGet("https://cdn.jsdelivr.net/gh/sinmirka/BLASPHEMY@c4ac973/roblox_rage_hub_client.lua"))()
+loadstring(game:HttpGet("https://cdn.jsdelivr.net/gh/sinmirka/BLASPHEMY@49d2392/roblox_rage_hub_client.lua"))()
 ```
 
 ## Files
 
-- `roblox_rage_hub_client.lua` - main BLASPHEMY client loader and feature script.
+- `roblox_rage_hub_client.lua` - main Blasphemy client loader and feature script.
 - `roblox_prism_gui_library.lua` - bundled GUI library.
 
 ## Current Tabs
@@ -23,6 +23,7 @@ loadstring(game:HttpGet("https://cdn.jsdelivr.net/gh/sinmirka/BLASPHEMY@c4ac973/
 - `AutoFarm` - reserved for future features.
 - `Alt` - reserved for future features.
 - `Settings` - config save/load/delete, GUI themes, hide-GUI bind, reset controls, and advanced timing/anti-void tuning.
+- Top-center watermark - always-visible Blasphemy status, ping, and FPS display.
 
 ## Requirements
 
