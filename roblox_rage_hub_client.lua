@@ -8,6 +8,7 @@ local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
+local Lighting = game:GetService("Lighting")
 
 local LocalPlayer = Players.LocalPlayer
 local ZERO_VECTOR = Vector3.new(0, 0, 0)
@@ -445,13 +446,14 @@ end
 
 createBlasphemyWatermark()
 
-local tabsOk, RageTab, PlayerTab, AutoFarmTab, AltTab, SettingsTab = pcall(function()
+local tabsOk, RageTab, PlayerTab, OptimizationsTab, AutoFarmTab, AltTab, SettingsTab = pcall(function()
     local rage = Window:AddTab("Rage")
     local player = Window:AddTab("Player")
+    local optimizations = Window:AddTab("Optimizations")
     local autoFarm = Window:AddTab("AutoFarm")
     local alt = Window:AddTab("Alt")
     local settings = Window:AddTab("Settings")
-    return rage, player, autoFarm, alt, settings
+    return rage, player, optimizations, autoFarm, alt, settings
 end)
 
 if not tabsOk then
@@ -512,6 +514,13 @@ local state = {
     playerWalkSpeed = false,
     playerJumpPower = false,
     playerFly = false,
+    optNoShadows = false,
+    optNoTextures = false,
+    optNoEffects = false,
+    optLowMaterials = false,
+    optTerrainLite = false,
+    optLowLighting = false,
+    optNo3DRender = false,
     autoFarmPositionLock = false,
     altAutoReset = false,
     altPositionLock = false,
@@ -541,6 +550,7 @@ local config = {
     flyMethod = "CFrame",
     altAutoResetDelay = 0.00,
     altRespawnTeleportDelay = 1.00,
+    optTextureTransparency = 1.00,
     evasiveSideHoldTime = 0.045,
     keyHoldTime = 0.015,
     mouseHoldTime = 0.012,
@@ -581,6 +591,13 @@ local stateKeys = {
     "playerWalkSpeed",
     "playerJumpPower",
     "playerFly",
+    "optNoShadows",
+    "optNoTextures",
+    "optNoEffects",
+    "optLowMaterials",
+    "optTerrainLite",
+    "optLowLighting",
+    "optNo3DRender",
     "autoFarmPositionLock",
     "altAutoReset",
     "altPositionLock",
@@ -609,6 +626,7 @@ local configKeys = {
     "flyMethod",
     "altAutoResetDelay",
     "altRespawnTeleportDelay",
+    "optTextureTransparency",
     "evasiveSideHoldTime",
     "keyHoldTime",
     "mouseHoldTime",
@@ -641,6 +659,11 @@ local altTeleportVersion = 0
 local flyBodyVelocity = nil
 local flyBodyGyro = nil
 local flyBodyRoot = nil
+local optimizationOriginals = setmetatable({}, { __mode = "k" })
+local optimizationWorkspaceConnection = nil
+local optimizationLightingConnection = nil
+local optimizationWhiteOverlay = nil
+local warned3DRenderToggle = false
 local lastJumpBoostAt = 0
 local lastSafeCFrame = nil
 local nextHighlightUpdate = 0
@@ -981,6 +1004,456 @@ local function disableAltPositionLock()
     if altTeleportConnection then
         altTeleportConnection:Disconnect()
         altTeleportConnection = nil
+    end
+end
+
+local optimizationStateKeys = {
+    optNoShadows = true,
+    optNoTextures = true,
+    optNoEffects = true,
+    optLowMaterials = true,
+    optTerrainLite = true,
+    optLowLighting = true,
+    optNo3DRender = true,
+}
+
+local function rememberProperty(instance, property)
+    if not instance then
+        return false
+    end
+
+    local values = optimizationOriginals[instance]
+    if not values then
+        values = {}
+        optimizationOriginals[instance] = values
+    end
+
+    if values[property] ~= nil then
+        return true
+    end
+
+    local ok, value = pcall(function()
+        return instance[property]
+    end)
+
+    if ok then
+        values[property] = value
+        return true
+    end
+
+    return false
+end
+
+local function setRememberedProperty(instance, property, value)
+    if rememberProperty(instance, property) then
+        pcall(function()
+            instance[property] = value
+        end)
+    end
+end
+
+local function restoreRememberedProperty(instance, property)
+    local values = optimizationOriginals[instance]
+    if not values or values[property] == nil then
+        return
+    end
+
+    local originalValue = values[property]
+    pcall(function()
+        instance[property] = originalValue
+    end)
+
+    values[property] = nil
+end
+
+local function restorePropertiesFor(predicate, properties)
+    for instance in pairs(optimizationOriginals) do
+        if predicate(instance) then
+            for _, property in ipairs(properties) do
+                restoreRememberedProperty(instance, property)
+            end
+        end
+    end
+end
+
+local function applyShadowOptimizationTo(instance)
+    if instance == Lighting then
+        setRememberedProperty(Lighting, "GlobalShadows", false)
+    elseif instance:IsA("BasePart") then
+        setRememberedProperty(instance, "CastShadow", false)
+    end
+end
+
+local function restoreShadowOptimization()
+    restoreRememberedProperty(Lighting, "GlobalShadows")
+    restorePropertiesFor(function(instance)
+        return instance:IsA("BasePart")
+    end, { "CastShadow" })
+end
+
+local function applyTextureOptimizationTo(instance)
+    local transparency = math.clamp(tonumber(config.optTextureTransparency) or 1, 0, 1)
+
+    if instance:IsA("Decal") or instance:IsA("Texture") then
+        setRememberedProperty(instance, "Transparency", transparency)
+    elseif instance:IsA("MeshPart") then
+        setRememberedProperty(instance, "TextureID", "")
+    elseif instance:IsA("SpecialMesh") then
+        setRememberedProperty(instance, "TextureId", "")
+    elseif instance:IsA("SurfaceAppearance") then
+        setRememberedProperty(instance, "ColorMap", "")
+        setRememberedProperty(instance, "MetalnessMap", "")
+        setRememberedProperty(instance, "NormalMap", "")
+        setRememberedProperty(instance, "RoughnessMap", "")
+    end
+end
+
+local function restoreTextureOptimization()
+    restorePropertiesFor(function(instance)
+        return instance:IsA("Decal") or instance:IsA("Texture")
+    end, { "Transparency" })
+
+    restorePropertiesFor(function(instance)
+        return instance:IsA("MeshPart")
+    end, { "TextureID" })
+
+    restorePropertiesFor(function(instance)
+        return instance:IsA("SpecialMesh")
+    end, { "TextureId" })
+
+    restorePropertiesFor(function(instance)
+        return instance:IsA("SurfaceAppearance")
+    end, { "ColorMap", "MetalnessMap", "NormalMap", "RoughnessMap" })
+end
+
+local function applyEffectsOptimizationTo(instance)
+    if instance:IsA("ParticleEmitter")
+        or instance:IsA("Trail")
+        or instance:IsA("Beam")
+        or instance:IsA("Smoke")
+        or instance:IsA("Fire")
+        or instance:IsA("Sparkles")
+        or instance:IsA("PostEffect") then
+        setRememberedProperty(instance, "Enabled", false)
+    elseif instance:IsA("Explosion") then
+        setRememberedProperty(instance, "Visible", false)
+    end
+end
+
+local function restoreEffectsOptimization()
+    restorePropertiesFor(function(instance)
+        return instance:IsA("ParticleEmitter")
+            or instance:IsA("Trail")
+            or instance:IsA("Beam")
+            or instance:IsA("Smoke")
+            or instance:IsA("Fire")
+            or instance:IsA("Sparkles")
+            or instance:IsA("PostEffect")
+    end, { "Enabled" })
+
+    restorePropertiesFor(function(instance)
+        return instance:IsA("Explosion")
+    end, { "Visible" })
+end
+
+local function applyMaterialOptimizationTo(instance)
+    if instance:IsA("BasePart") then
+        setRememberedProperty(instance, "Material", Enum.Material.SmoothPlastic)
+        setRememberedProperty(instance, "Reflectance", 0)
+    end
+
+    if instance:IsA("MeshPart") then
+        setRememberedProperty(instance, "RenderFidelity", Enum.RenderFidelity.Performance)
+    end
+end
+
+local function restoreMaterialOptimization()
+    restorePropertiesFor(function(instance)
+        return instance:IsA("BasePart")
+    end, { "Material", "Reflectance" })
+
+    restorePropertiesFor(function(instance)
+        return instance:IsA("MeshPart")
+    end, { "RenderFidelity" })
+end
+
+local function applyTerrainOptimization()
+    local terrain = workspace:FindFirstChildOfClass("Terrain")
+    if not terrain then
+        return
+    end
+
+    setRememberedProperty(terrain, "Decoration", false)
+    setRememberedProperty(terrain, "WaterWaveSize", 0)
+    setRememberedProperty(terrain, "WaterWaveSpeed", 0)
+    setRememberedProperty(terrain, "WaterReflectance", 0)
+    setRememberedProperty(terrain, "WaterTransparency", 1)
+end
+
+local function restoreTerrainOptimization()
+    local terrain = workspace:FindFirstChildOfClass("Terrain")
+    if terrain then
+        restoreRememberedProperty(terrain, "Decoration")
+        restoreRememberedProperty(terrain, "WaterWaveSize")
+        restoreRememberedProperty(terrain, "WaterWaveSpeed")
+        restoreRememberedProperty(terrain, "WaterReflectance")
+        restoreRememberedProperty(terrain, "WaterTransparency")
+    end
+end
+
+local function applyLightingOptimization()
+    setRememberedProperty(Lighting, "Brightness", 1)
+    setRememberedProperty(Lighting, "EnvironmentDiffuseScale", 0)
+    setRememberedProperty(Lighting, "EnvironmentSpecularScale", 0)
+    setRememberedProperty(Lighting, "FogEnd", 100000)
+    setRememberedProperty(Lighting, "FogStart", 0)
+    setRememberedProperty(Lighting, "OutdoorAmbient", Color3.fromRGB(128, 128, 128))
+    setRememberedProperty(Lighting, "Ambient", Color3.fromRGB(128, 128, 128))
+end
+
+local function restoreLightingOptimization()
+    restoreRememberedProperty(Lighting, "Brightness")
+    restoreRememberedProperty(Lighting, "EnvironmentDiffuseScale")
+    restoreRememberedProperty(Lighting, "EnvironmentSpecularScale")
+    restoreRememberedProperty(Lighting, "FogEnd")
+    restoreRememberedProperty(Lighting, "FogStart")
+    restoreRememberedProperty(Lighting, "OutdoorAmbient")
+    restoreRememberedProperty(Lighting, "Ambient")
+end
+
+local function parentOptimizationOverlay(screenGui)
+    for _, parent in ipairs(getGuiParentCandidates()) do
+        pcall(function()
+            local existing = parent:FindFirstChild(screenGui.Name)
+            if existing then
+                existing:Destroy()
+            end
+        end)
+    end
+
+    for _, parent in ipairs(getGuiParentCandidates()) do
+        local ok = pcall(function()
+            screenGui.Parent = parent
+        end)
+
+        if ok and screenGui.Parent == parent then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function enableWhiteRenderOverlay()
+    if optimizationWhiteOverlay then
+        return
+    end
+
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "BlasphemyOptimizationWhiteScreen"
+    screenGui.ResetOnSpawn = false
+    screenGui.IgnoreGuiInset = true
+    screenGui.DisplayOrder = 99990
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+    local frame = Instance.new("Frame")
+    frame.Name = "WhiteScreen"
+    frame.Size = UDim2.fromScale(1, 1)
+    frame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    frame.BorderSizePixel = 0
+    frame.Parent = screenGui
+
+    if parentOptimizationOverlay(screenGui) then
+        optimizationWhiteOverlay = screenGui
+    else
+        screenGui:Destroy()
+    end
+end
+
+local function disableWhiteRenderOverlay()
+    if optimizationWhiteOverlay then
+        optimizationWhiteOverlay:Destroy()
+        optimizationWhiteOverlay = nil
+    end
+end
+
+local function set3DRendering(enabled)
+    local ok = pcall(function()
+        RunService:Set3dRenderingEnabled(enabled)
+    end)
+
+    if not ok and not warned3DRenderToggle then
+        warned3DRenderToggle = true
+        warn("[Blasphemy] RunService:Set3dRenderingEnabled is unavailable in this environment.")
+    end
+end
+
+local function apply3DRenderOptimization(enabled)
+    if enabled then
+        set3DRendering(false)
+        enableWhiteRenderOverlay()
+    else
+        set3DRendering(true)
+        disableWhiteRenderOverlay()
+    end
+end
+
+local function applyOptimizationToInstance(instance)
+    if state.optNoShadows then
+        applyShadowOptimizationTo(instance)
+    end
+
+    if state.optNoTextures then
+        applyTextureOptimizationTo(instance)
+    end
+
+    if state.optNoEffects then
+        applyEffectsOptimizationTo(instance)
+    end
+
+    if state.optLowMaterials then
+        applyMaterialOptimizationTo(instance)
+    end
+end
+
+local function applyOptimizationScan()
+    applyOptimizationToInstance(Lighting)
+
+    for _, instance in ipairs(workspace:GetDescendants()) do
+        applyOptimizationToInstance(instance)
+    end
+
+    for _, instance in ipairs(Lighting:GetDescendants()) do
+        applyOptimizationToInstance(instance)
+    end
+
+    if state.optTerrainLite then
+        applyTerrainOptimization()
+    end
+
+    if state.optLowLighting then
+        applyLightingOptimization()
+    end
+end
+
+local function hasStreamingOptimizationEnabled()
+    return state.optNoShadows
+        or state.optNoTextures
+        or state.optNoEffects
+        or state.optLowMaterials
+end
+
+local function updateOptimizationWatchers()
+    if hasStreamingOptimizationEnabled() then
+        if not optimizationWorkspaceConnection then
+            optimizationWorkspaceConnection = workspace.DescendantAdded:Connect(function(instance)
+                deferTask(function()
+                    applyOptimizationToInstance(instance)
+                end)
+            end)
+        end
+
+        if not optimizationLightingConnection then
+            optimizationLightingConnection = Lighting.DescendantAdded:Connect(function(instance)
+                deferTask(function()
+                    applyOptimizationToInstance(instance)
+                end)
+            end)
+        end
+    else
+        if optimizationWorkspaceConnection then
+            optimizationWorkspaceConnection:Disconnect()
+            optimizationWorkspaceConnection = nil
+        end
+
+        if optimizationLightingConnection then
+            optimizationLightingConnection:Disconnect()
+            optimizationLightingConnection = nil
+        end
+    end
+end
+
+local function setOptimizationState(name, enabled)
+    if name == "optNoShadows" then
+        if enabled then
+            applyOptimizationScan()
+        else
+            restoreShadowOptimization()
+        end
+    elseif name == "optNoTextures" then
+        if enabled then
+            applyOptimizationScan()
+        else
+            restoreTextureOptimization()
+        end
+    elseif name == "optNoEffects" then
+        if enabled then
+            applyOptimizationScan()
+        else
+            restoreEffectsOptimization()
+        end
+    elseif name == "optLowMaterials" then
+        if enabled then
+            applyOptimizationScan()
+        else
+            restoreMaterialOptimization()
+        end
+    elseif name == "optTerrainLite" then
+        if enabled then
+            applyTerrainOptimization()
+        else
+            restoreTerrainOptimization()
+        end
+    elseif name == "optLowLighting" then
+        if enabled then
+            applyLightingOptimization()
+        else
+            restoreLightingOptimization()
+        end
+    elseif name == "optNo3DRender" then
+        apply3DRenderOptimization(enabled)
+    end
+
+    updateOptimizationWatchers()
+end
+
+local function restoreAllOptimizations()
+    restoreShadowOptimization()
+    restoreTextureOptimization()
+    restoreEffectsOptimization()
+    restoreMaterialOptimization()
+    restoreTerrainOptimization()
+    restoreLightingOptimization()
+    apply3DRenderOptimization(false)
+
+    if optimizationWorkspaceConnection then
+        optimizationWorkspaceConnection:Disconnect()
+        optimizationWorkspaceConnection = nil
+    end
+
+    if optimizationLightingConnection then
+        optimizationLightingConnection:Disconnect()
+        optimizationLightingConnection = nil
+    end
+end
+
+local function setOptimizationPreset(enabled)
+    local keys = {
+        "optNoShadows",
+        "optNoTextures",
+        "optNoEffects",
+        "optLowMaterials",
+        "optTerrainLite",
+        "optLowLighting",
+    }
+
+    for _, key in ipairs(keys) do
+        if controls[key] then
+            controls[key]:Set(enabled)
+        else
+            state[key] = enabled == true
+            setOptimizationState(key, state[key])
+        end
     end
 end
 
@@ -1458,6 +1931,11 @@ local skillKeys = {
 
 local function setState(name, value)
     state[name] = value == true
+
+    if optimizationStateKeys[name] then
+        setOptimizationState(name, state[name])
+        return
+    end
 
     if name == "altAutoReset" then
         if state[name] then
@@ -1977,7 +2455,7 @@ end
 
 local function collectConfigData()
     local data = {
-        version = 5,
+        version = 6,
         theme = settings.theme or Window:GetTheme(),
         menuBind = keyToName(Window:GetToggleKey()),
         targetBind = controls.targetBind and keyToName(controls.targetBind:Get()) or nil,
@@ -2018,6 +2496,7 @@ local function syncNumericControls()
         flySpeed = config.flySpeed,
         altAutoResetDelay = config.altAutoResetDelay,
         altRespawnTeleportDelay = config.altRespawnTeleportDelay,
+        optTextureTransparency = config.optTextureTransparency,
         evasiveSideHoldTime = config.evasiveSideHoldTime,
         orbitRadius = config.orbitRadius,
         orbitSpeed = config.orbitSpeed,
@@ -2803,6 +3282,134 @@ controls.flySpeed = PlayerTab:AddSlider({
     end,
 })
 
+OptimizationsTab:AddSection("Render")
+
+controls.optNo3DRender = OptimizationsTab:AddToggle({
+    Name = "Disable 3D Render",
+    Description = "White screen behind GUI",
+    Default = false,
+    Callback = function(value)
+        setState("optNo3DRender", value)
+    end,
+})
+
+controls.optNoShadows = OptimizationsTab:AddToggle({
+    Name = "No Shadows",
+    Description = "Global and part shadows off",
+    Default = false,
+    Callback = function(value)
+        setState("optNoShadows", value)
+    end,
+})
+
+controls.optLowLighting = OptimizationsTab:AddToggle({
+    Name = "Low Lighting",
+    Description = "Simplify lighting values",
+    Default = false,
+    Callback = function(value)
+        setState("optLowLighting", value)
+    end,
+})
+
+OptimizationsTab:AddSection("World")
+
+controls.optNoTextures = OptimizationsTab:AddToggle({
+    Name = "No Textures",
+    Description = "Hide decals and clear mesh maps",
+    Default = false,
+    Callback = function(value)
+        setState("optNoTextures", value)
+    end,
+})
+
+controls.optTextureTransparency = OptimizationsTab:AddSlider({
+    Name = "Texture Transparency",
+    Min = 0.00,
+    Max = 1.00,
+    Default = config.optTextureTransparency,
+    Increment = 0.05,
+    Suffix = "x",
+    Callback = function(value)
+        config.optTextureTransparency = value
+
+        if state.optNoTextures then
+            applyOptimizationScan()
+        end
+    end,
+})
+
+controls.optNoEffects = OptimizationsTab:AddToggle({
+    Name = "No Effects",
+    Description = "Particles, beams, trails, post FX",
+    Default = false,
+    Callback = function(value)
+        setState("optNoEffects", value)
+    end,
+})
+
+controls.optLowMaterials = OptimizationsTab:AddToggle({
+    Name = "Low Materials",
+    Description = "SmoothPlastic and low mesh fidelity",
+    Default = false,
+    Callback = function(value)
+        setState("optLowMaterials", value)
+    end,
+})
+
+controls.optTerrainLite = OptimizationsTab:AddToggle({
+    Name = "Terrain Lite",
+    Description = "Terrain decoration and water effects off",
+    Default = false,
+    Callback = function(value)
+        setState("optTerrainLite", value)
+    end,
+})
+
+OptimizationsTab:AddSection("Presets")
+
+OptimizationsTab:AddButton({
+    Name = "Potato Preset",
+    Callback = function()
+        setOptimizationPreset(true)
+        notifyStatus("Optimization preset enabled.")
+    end,
+})
+
+OptimizationsTab:AddButton({
+    Name = "Restore Optimizations",
+    Callback = function()
+        for key in pairs(optimizationStateKeys) do
+            if controls[key] then
+                controls[key]:Set(false)
+            else
+                state[key] = false
+            end
+        end
+
+        restoreAllOptimizations()
+        notifyStatus("Optimizations restored.")
+    end,
+})
+
+OptimizationsTab:AddButton({
+    Name = "Rescan World",
+    Callback = function()
+        applyOptimizationScan()
+        notifyStatus("Optimization scan applied.")
+    end,
+})
+
+OptimizationsTab:AddButton({
+    Name = "GC Sweep",
+    Callback = function()
+        pcall(function()
+            collectgarbage("collect")
+        end)
+
+        notifyStatus("Garbage collection requested.")
+    end,
+})
+
 AutoFarmTab:AddSection("Position")
 
 autoFarmPositionLabel = AutoFarmTab:AddLabel("Saved: none")
@@ -3103,6 +3710,7 @@ SettingsTab:AddButton({
         disableAutoReset()
         disableAltPositionLock()
         cleanupPlayerMovement()
+        restoreAllOptimizations()
         clearTargetHighlight()
         Window:Destroy()
     end,
