@@ -540,6 +540,7 @@ local config = {
     flySpeed = 55,
     flyMethod = "CFrame",
     altAutoResetDelay = 0.00,
+    altRespawnTeleportDelay = 1.00,
     evasiveSideHoldTime = 0.045,
     keyHoldTime = 0.015,
     mouseHoldTime = 0.012,
@@ -607,6 +608,7 @@ local configKeys = {
     "flySpeed",
     "flyMethod",
     "altAutoResetDelay",
+    "altRespawnTeleportDelay",
     "evasiveSideHoldTime",
     "keyHoldTime",
     "mouseHoldTime",
@@ -632,6 +634,10 @@ local autoFarmPositionLabel = nil
 local altPositionLabel = nil
 local autoResetConnection = nil
 local autoResetVersion = 0
+local altTeleportConnection = nil
+local altTeleportDiedConnection = nil
+local altTeleportReady = false
+local altTeleportVersion = 0
 local flyBodyVelocity = nil
 local flyBodyGyro = nil
 local flyBodyRoot = nil
@@ -839,6 +845,142 @@ local function disableAutoReset()
     if autoResetConnection then
         autoResetConnection:Disconnect()
         autoResetConnection = nil
+    end
+end
+
+local function disconnectAltTeleportDied()
+    if altTeleportDiedConnection then
+        altTeleportDiedConnection:Disconnect()
+        altTeleportDiedConnection = nil
+    end
+end
+
+local function pauseAltTeleportCycle()
+    altTeleportReady = false
+end
+
+local function canAltTeleport()
+    if not state.altPositionLock or not altTeleportReady then
+        return false
+    end
+
+    local character = getCharacter()
+    local humanoid = getHumanoid(character)
+    local root = getRoot(character)
+
+    return character ~= nil and humanoid ~= nil and root ~= nil and humanoid.Health > 0
+end
+
+local function scheduleAltTeleportForCharacter(character, useRespawnDelay)
+    if not state.altPositionLock or not character then
+        pauseAltTeleportCycle()
+        return
+    end
+
+    altTeleportVersion = altTeleportVersion + 1
+    local token = altTeleportVersion
+    pauseAltTeleportCycle()
+    disconnectAltTeleportDied()
+
+    deferTask(function()
+        local startedAt = os.clock()
+        local humanoid = getHumanoid(character)
+        local root = getRoot(character)
+
+        while state.altPositionLock
+            and token == altTeleportVersion
+            and character.Parent
+            and (not humanoid or not root)
+            and os.clock() - startedAt < 8 do
+            task.wait(0.05)
+            humanoid = getHumanoid(character)
+            root = getRoot(character)
+        end
+
+        if not state.altPositionLock
+            or token ~= altTeleportVersion
+            or not character.Parent
+            or not humanoid
+            or not root
+            or humanoid.Health <= 0 then
+            pauseAltTeleportCycle()
+            return
+        end
+
+        altTeleportDiedConnection = humanoid.Died:Connect(function()
+            if token == altTeleportVersion then
+                pauseAltTeleportCycle()
+            end
+        end)
+
+        local delaySeconds = useRespawnDelay and math.max(0, tonumber(config.altRespawnTeleportDelay) or 0) or 0
+        local teleportAt = os.clock() + delaySeconds
+
+        while state.altPositionLock
+            and token == altTeleportVersion
+            and character.Parent
+            and humanoid.Health > 0
+            and os.clock() < teleportAt do
+            task.wait(math.max(0, math.min(0.05, teleportAt - os.clock())))
+        end
+
+        if state.altPositionLock
+            and token == altTeleportVersion
+            and character.Parent
+            and humanoid.Health > 0
+            and getRoot(character) then
+            altTeleportReady = true
+            teleportToSavedPosition("alt")
+        end
+    end)
+end
+
+local function startAltTeleportLoop()
+    if loopRunning.altPositionLock then
+        return
+    end
+
+    loopRunning.altPositionLock = true
+
+    task.spawn(function()
+        while state.altPositionLock do
+            local started = os.clock()
+
+            if canAltTeleport() then
+                teleportToSavedPosition("alt")
+            end
+
+            task.wait(math.max(0, config.altTeleportInterval - (os.clock() - started)))
+        end
+
+        loopRunning.altPositionLock = false
+    end)
+end
+
+local function enableAltPositionLock()
+    if not altSavedCFrame and not saveCurrentPosition("alt") then
+        return false
+    end
+
+    if LocalPlayer and not altTeleportConnection then
+        altTeleportConnection = LocalPlayer.CharacterAdded:Connect(function(character)
+            scheduleAltTeleportForCharacter(character, true)
+        end)
+    end
+
+    scheduleAltTeleportForCharacter(getCharacter(), false)
+    startAltTeleportLoop()
+    return true
+end
+
+local function disableAltPositionLock()
+    altTeleportVersion = altTeleportVersion + 1
+    pauseAltTeleportCycle()
+    disconnectAltTeleportDied()
+
+    if altTeleportConnection then
+        altTeleportConnection:Disconnect()
+        altTeleportConnection = nil
     end
 end
 
@@ -1342,6 +1484,11 @@ local function setState(name, value)
         return
     end
 
+    if name == "altPositionLock" and not state[name] then
+        disableAltPositionLock()
+        return
+    end
+
     if not state[name] then
         return
     end
@@ -1404,19 +1551,13 @@ local function setState(name, value)
             teleportToSavedPosition("autoFarm")
         end)
     elseif name == "altPositionLock" then
-        if not altSavedCFrame and not saveCurrentPosition("alt") then
+        if not enableAltPositionLock() then
             state[name] = false
             if controls[name] then
                 controls[name]:Set(false, true)
             end
             return
         end
-
-        startLoop(name, function()
-            return config.altTeleportInterval
-        end, function()
-            teleportToSavedPosition("alt")
-        end)
     end
 end
 
@@ -1836,7 +1977,7 @@ end
 
 local function collectConfigData()
     local data = {
-        version = 4,
+        version = 5,
         theme = settings.theme or Window:GetTheme(),
         menuBind = keyToName(Window:GetToggleKey()),
         targetBind = controls.targetBind and keyToName(controls.targetBind:Get()) or nil,
@@ -1876,6 +2017,7 @@ local function syncNumericControls()
         jumpPowerValue = config.jumpPowerValue,
         flySpeed = config.flySpeed,
         altAutoResetDelay = config.altAutoResetDelay,
+        altRespawnTeleportDelay = config.altRespawnTeleportDelay,
         evasiveSideHoldTime = config.evasiveSideHoldTime,
         orbitRadius = config.orbitRadius,
         orbitSpeed = config.orbitSpeed,
@@ -2767,6 +2909,22 @@ controls.altPositionLock = AltTab:AddToggle({
     end,
 })
 
+controls.altRespawnTeleportDelay = AltTab:AddSlider({
+    Name = "Respawn Teleport Delay",
+    Min = 0.00,
+    Max = 10.00,
+    Default = config.altRespawnTeleportDelay,
+    Increment = 0.05,
+    Suffix = "s",
+    Callback = function(value)
+        config.altRespawnTeleportDelay = value
+
+        if state.altPositionLock and not altTeleportReady then
+            scheduleAltTeleportForCharacter(getCharacter(), true)
+        end
+    end,
+})
+
 controls.altTeleportInterval = AltTab:AddSlider({
     Name = "Teleport Delay",
     Min = 0.05,
@@ -2943,6 +3101,7 @@ SettingsTab:AddButton({
         end
 
         disableAutoReset()
+        disableAltPositionLock()
         cleanupPlayerMovement()
         clearTargetHighlight()
         Window:Destroy()
