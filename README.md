@@ -9,7 +9,7 @@ A lightweight Roblox client script hub with a bundled GUI library loader.
 Copy and execute this:
 
 ```lua
-loadstring(game:HttpGet("https://cdn.jsdelivr.net/gh/sinmirka/BLASPHEMY@49d2392/roblox_rage_hub_client.lua"))()
+loadstring(game:HttpGet("https://cdn.jsdelivr.net/gh/sinmirka/BLASPHEMY@13ad956/roblox_rage_hub_client.lua"))()
 ```
 
 ## Files
@@ -20,8 +20,8 @@ loadstring(game:HttpGet("https://cdn.jsdelivr.net/gh/sinmirka/BLASPHEMY@49d2392/
 ## Current Tabs
 
 - `Rage` - target selector, target/friend lists, target bind, low-health targeting, orbit/smart orbit, camera lock, anti-void, target highlight customization, combat automation, auto-evasive, and timing controls.
-- `AutoFarm` - reserved for future features.
-- `Alt` - reserved for future features.
+- `AutoFarm` - SetPosition capture, saved CFrame lock, and teleport delay control.
+- `Alt` - AutoReset on spawn plus separate SetPosition capture, saved CFrame lock, and teleport delay control.
 - `Settings` - config save/load/delete, GUI themes, hide-GUI bind, reset controls, and advanced timing/anti-void tuning.
 - Top-center watermark - always-visible Blasphemy status, ping, and FPS display.
 
