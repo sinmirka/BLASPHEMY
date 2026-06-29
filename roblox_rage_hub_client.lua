@@ -539,6 +539,7 @@ local config = {
     jumpPowerMethod = "JumpPower",
     flySpeed = 55,
     flyMethod = "CFrame",
+    altAutoResetDelay = 0.00,
     evasiveSideHoldTime = 0.045,
     keyHoldTime = 0.015,
     mouseHoldTime = 0.012,
@@ -605,6 +606,7 @@ local configKeys = {
     "jumpPowerMethod",
     "flySpeed",
     "flyMethod",
+    "altAutoResetDelay",
     "evasiveSideHoldTime",
     "keyHoldTime",
     "mouseHoldTime",
@@ -799,6 +801,16 @@ local function scheduleAutoReset(character)
             and os.clock() - startedAt < 5 do
             task.wait(0.05)
             humanoid = getHumanoid(character)
+        end
+
+        local delaySeconds = math.max(0, tonumber(config.altAutoResetDelay) or 0)
+        local resetAt = os.clock() + delaySeconds
+
+        while state.altAutoReset
+            and token == autoResetVersion
+            and character.Parent
+            and os.clock() < resetAt do
+            task.wait(math.max(0, math.min(0.05, resetAt - os.clock())))
         end
 
         if state.altAutoReset and token == autoResetVersion and character.Parent then
@@ -1824,7 +1836,7 @@ end
 
 local function collectConfigData()
     local data = {
-        version = 3,
+        version = 4,
         theme = settings.theme or Window:GetTheme(),
         menuBind = keyToName(Window:GetToggleKey()),
         targetBind = controls.targetBind and keyToName(controls.targetBind:Get()) or nil,
@@ -1863,6 +1875,7 @@ local function syncNumericControls()
         walkSpeedValue = config.walkSpeedValue,
         jumpPowerValue = config.jumpPowerValue,
         flySpeed = config.flySpeed,
+        altAutoResetDelay = config.altAutoResetDelay,
         evasiveSideHoldTime = config.evasiveSideHoldTime,
         orbitRadius = config.orbitRadius,
         orbitSpeed = config.orbitSpeed,
@@ -2696,6 +2709,33 @@ controls.altAutoReset = AltTab:AddToggle({
     Default = false,
     Callback = function(value)
         setState("altAutoReset", value)
+    end,
+})
+
+controls.altAutoResetDelay = AltTab:AddSlider({
+    Name = "Reset Delay",
+    Min = 0.00,
+    Max = 10.00,
+    Default = config.altAutoResetDelay,
+    Increment = 0.05,
+    Suffix = "s",
+    Callback = function(value)
+        config.altAutoResetDelay = value
+
+        if state.altAutoReset then
+            scheduleAutoReset(getCharacter())
+        end
+    end,
+})
+
+AltTab:AddButton({
+    Name = "Reset Current",
+    Callback = function()
+        if resetCharacter() then
+            notifyStatus("Current character reset.")
+        else
+            notifyStatus("No character to reset.", true, 2.5)
+        end
     end,
 })
 
