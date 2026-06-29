@@ -1,7 +1,7 @@
 -- Rage Hub Client
 -- Replace GUI_LIBRARY_URL with your raw GitHub link to roblox_prism_gui_library.lua.
 
-local GUI_LIBRARY_URL = "https://raw.githubusercontent.com/sinmirka/BLASPHEMY/main/roblox_prism_gui_library.lua?v=20260629-2"
+local GUI_LIBRARY_URL = "https://cdn.jsdelivr.net/gh/sinmirka/BLASPHEMY@main/roblox_prism_gui_library.lua?v=20260629-3"
 local REQUIRED_GUI_LIBRARY_VERSION = "1.1.1"
 
 local Players = game:GetService("Players")
