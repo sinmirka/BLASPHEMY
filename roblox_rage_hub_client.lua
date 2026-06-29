@@ -445,12 +445,12 @@ end
 
 createBlasphemyWatermark()
 
-local tabsOk, RageTab, SettingsTab = pcall(function()
+local tabsOk, RageTab, AutoFarmTab, AltTab, SettingsTab = pcall(function()
     local rage = Window:AddTab("Rage")
-    Window:AddTab("AutoFarm")
-    Window:AddTab("Alt")
+    local autoFarm = Window:AddTab("AutoFarm")
+    local alt = Window:AddTab("Alt")
     local settings = Window:AddTab("Settings")
-    return rage, settings
+    return rage, autoFarm, alt, settings
 end)
 
 if not tabsOk then
@@ -508,6 +508,9 @@ local state = {
     autoBurst = false,
     autoDash = false,
     autoEvasive = false,
+    autoFarmPositionLock = false,
+    altAutoReset = false,
+    altPositionLock = false,
     findLowPlayers = false,
     orbit = false,
     smartOrbit = false,
@@ -524,6 +527,8 @@ local config = {
     autoBurstInterval = 0.10,
     autoDashInterval = 0.10,
     autoEvasiveInterval = 0.10,
+    autoFarmTeleportInterval = 0.12,
+    altTeleportInterval = 0.12,
     evasiveSideHoldTime = 0.045,
     keyHoldTime = 0.015,
     mouseHoldTime = 0.012,
@@ -557,6 +562,9 @@ local stateKeys = {
     "autoBurst",
     "autoDash",
     "autoEvasive",
+    "autoFarmPositionLock",
+    "altAutoReset",
+    "altPositionLock",
     "findLowPlayers",
     "orbit",
     "smartOrbit",
@@ -572,6 +580,8 @@ local configKeys = {
     "autoBurstInterval",
     "autoDashInterval",
     "autoEvasiveInterval",
+    "autoFarmTeleportInterval",
+    "altTeleportInterval",
     "evasiveSideHoldTime",
     "keyHoldTime",
     "mouseHoldTime",
@@ -591,6 +601,12 @@ local CONFIG_DIR = CONFIG_ROOT .. "/configs"
 
 local targetDropdown = nil
 local targetHighlight = nil
+local autoFarmSavedCFrame = nil
+local altSavedCFrame = nil
+local autoFarmPositionLabel = nil
+local altPositionLabel = nil
+local autoResetConnection = nil
+local autoResetVersion = 0
 local lastSafeCFrame = nil
 local nextHighlightUpdate = 0
 local orbitAngle = 0
@@ -620,6 +636,171 @@ local function getRoot(character)
     return character:FindFirstChild("HumanoidRootPart")
         or character:FindFirstChild("Torso")
         or character:FindFirstChild("UpperTorso")
+end
+
+local function formatCFramePosition(cframe)
+    if typeof(cframe) ~= "CFrame" then
+        return "none"
+    end
+
+    local position = cframe.Position
+    return string.format("%.1f, %.1f, %.1f", position.X, position.Y, position.Z)
+end
+
+local function updateSavedPositionLabel(label, cframe)
+    if not label then
+        return
+    end
+
+    local textLabel = label:FindFirstChild("Text")
+    if textLabel then
+        textLabel.Text = "Saved: " .. formatCFramePosition(cframe)
+    end
+end
+
+local function updateSavedPositionLabels()
+    updateSavedPositionLabel(autoFarmPositionLabel, autoFarmSavedCFrame)
+    updateSavedPositionLabel(altPositionLabel, altSavedCFrame)
+end
+
+local function getSavedPosition(name)
+    if name == "autoFarm" then
+        return autoFarmSavedCFrame
+    end
+
+    if name == "alt" then
+        return altSavedCFrame
+    end
+
+    return nil
+end
+
+local function setSavedPosition(name, cframe)
+    if typeof(cframe) ~= "CFrame" then
+        return false
+    end
+
+    if name == "autoFarm" then
+        autoFarmSavedCFrame = cframe
+    elseif name == "alt" then
+        altSavedCFrame = cframe
+    else
+        return false
+    end
+
+    updateSavedPositionLabels()
+    return true
+end
+
+local function saveCurrentPosition(name)
+    local root = getRoot()
+    if not root then
+        return false
+    end
+
+    return setSavedPosition(name, root.CFrame)
+end
+
+local function teleportToCFrame(cframe)
+    if typeof(cframe) ~= "CFrame" then
+        return false
+    end
+
+    local character = getCharacter()
+    local root = getRoot(character)
+    if not character or not root then
+        return false
+    end
+
+    pcall(function()
+        root.AssemblyLinearVelocity = ZERO_VECTOR
+        root.AssemblyAngularVelocity = ZERO_VECTOR
+    end)
+
+    local ok = pcall(function()
+        character:PivotTo(cframe)
+    end)
+
+    if not ok then
+        ok = pcall(function()
+            root.CFrame = cframe
+        end)
+    end
+
+    return ok
+end
+
+local function teleportToSavedPosition(name)
+    return teleportToCFrame(getSavedPosition(name))
+end
+
+local function resetCharacter(character)
+    character = character or getCharacter()
+    if not character then
+        return false
+    end
+
+    local humanoid = getHumanoid(character)
+    if humanoid and humanoid.Health > 0 then
+        humanoid.Health = 0
+        return true
+    end
+
+    local ok = pcall(function()
+        character:BreakJoints()
+    end)
+
+    return ok
+end
+
+local function scheduleAutoReset(character)
+    if not state.altAutoReset or not character then
+        return
+    end
+
+    autoResetVersion = autoResetVersion + 1
+    local token = autoResetVersion
+
+    deferTask(function()
+        local startedAt = os.clock()
+        local humanoid = getHumanoid(character)
+
+        while state.altAutoReset
+            and token == autoResetVersion
+            and character.Parent
+            and not humanoid
+            and os.clock() - startedAt < 5 do
+            task.wait(0.05)
+            humanoid = getHumanoid(character)
+        end
+
+        if state.altAutoReset and token == autoResetVersion and character.Parent then
+            resetCharacter(character)
+        end
+    end)
+end
+
+local function enableAutoReset()
+    if not LocalPlayer then
+        return
+    end
+
+    if not autoResetConnection then
+        autoResetConnection = LocalPlayer.CharacterAdded:Connect(function(character)
+            scheduleAutoReset(character)
+        end)
+    end
+
+    scheduleAutoReset(getCharacter())
+end
+
+local function disableAutoReset()
+    autoResetVersion = autoResetVersion + 1
+
+    if autoResetConnection then
+        autoResetConnection:Disconnect()
+        autoResetConnection = nil
+    end
 end
 
 local function getEquippedTool()
@@ -798,6 +979,16 @@ local skillKeys = {
 local function setState(name, value)
     state[name] = value == true
 
+    if name == "altAutoReset" then
+        if state[name] then
+            enableAutoReset()
+        else
+            disableAutoReset()
+        end
+
+        return
+    end
+
     if not state[name] then
         return
     end
@@ -845,6 +1036,34 @@ local function setState(name, value)
         startLoop(name, function()
             return config.autoEvasiveInterval
         end, sendEvasiveDash)
+    elseif name == "autoFarmPositionLock" then
+        if not autoFarmSavedCFrame and not saveCurrentPosition("autoFarm") then
+            state[name] = false
+            if controls[name] then
+                controls[name]:Set(false, true)
+            end
+            return
+        end
+
+        startLoop(name, function()
+            return config.autoFarmTeleportInterval
+        end, function()
+            teleportToSavedPosition("autoFarm")
+        end)
+    elseif name == "altPositionLock" then
+        if not altSavedCFrame and not saveCurrentPosition("alt") then
+            state[name] = false
+            if controls[name] then
+                controls[name]:Set(false, true)
+            end
+            return
+        end
+
+        startLoop(name, function()
+            return config.altTeleportInterval
+        end, function()
+            teleportToSavedPosition("alt")
+        end)
     end
 end
 
@@ -1132,6 +1351,39 @@ local function colorFromData(data, fallback)
     return Color3.fromRGB(red, green, blue)
 end
 
+local function cframeToData(cframe)
+    if typeof(cframe) ~= "CFrame" then
+        return nil
+    end
+
+    return { cframe:GetComponents() }
+end
+
+local function cframeFromData(data)
+    if type(data) ~= "table" then
+        return nil
+    end
+
+    local values = {}
+    local source = data.components or data
+
+    for index = 1, 12 do
+        local value = tonumber(source[index])
+        if not value then
+            return nil
+        end
+
+        values[index] = value
+    end
+
+    return CFrame.new(
+        values[1], values[2], values[3],
+        values[4], values[5], values[6],
+        values[7], values[8], values[9],
+        values[10], values[11], values[12]
+    )
+end
+
 local function hasFileApi()
     return type(writefile) == "function"
         and type(readfile) == "function"
@@ -1231,13 +1483,14 @@ end
 
 local function collectConfigData()
     local data = {
-        version = 1,
+        version = 2,
         theme = settings.theme or Window:GetTheme(),
         menuBind = keyToName(Window:GetToggleKey()),
         targetBind = controls.targetBind and keyToName(controls.targetBind:Get()) or nil,
         targetName = state.targetName,
         states = {},
         config = {},
+        positions = {},
     }
 
     for _, key in ipairs(stateKeys) do
@@ -1249,6 +1502,8 @@ local function collectConfigData()
     end
 
     data.config.highlightColor = colorToData(config.highlightColor)
+    data.positions.autoFarm = cframeToData(autoFarmSavedCFrame)
+    data.positions.alt = cframeToData(altSavedCFrame)
     data.targetList = listFromMap(targetList)
     data.friendList = listFromMap(friendList)
 
@@ -1262,6 +1517,8 @@ local function syncNumericControls()
         autoBurstInterval = config.autoBurstInterval,
         autoUltimateInterval = config.autoUltimateInterval,
         autoEvasiveInterval = config.autoEvasiveInterval,
+        autoFarmTeleportInterval = config.autoFarmTeleportInterval,
+        altTeleportInterval = config.altTeleportInterval,
         evasiveSideHoldTime = config.evasiveSideHoldTime,
         orbitRadius = config.orbitRadius,
         orbitSpeed = config.orbitSpeed,
@@ -1296,6 +1553,12 @@ local function applyConfigData(data)
         end
 
         config.highlightColor = colorFromData(data.config.highlightColor, config.highlightColor)
+    end
+
+    if type(data.positions) == "table" then
+        autoFarmSavedCFrame = cframeFromData(data.positions.autoFarm)
+        altSavedCFrame = cframeFromData(data.positions.alt)
+        updateSavedPositionLabels()
     end
 
     if type(data.states) == "table" then
@@ -1914,6 +2177,99 @@ controls.autoUltimateInterval = RageTab:AddSlider({
     end,
 })
 
+AutoFarmTab:AddSection("Position")
+
+autoFarmPositionLabel = AutoFarmTab:AddLabel("Saved: none")
+
+AutoFarmTab:AddButton({
+    Name = "SetPosition",
+    Callback = function()
+        if saveCurrentPosition("autoFarm") then
+            notifyStatus("AutoFarm position saved.")
+
+            if controls.autoFarmPositionLock then
+                controls.autoFarmPositionLock:Set(true)
+            end
+        else
+            notifyStatus("No character root to save.", true, 2.5)
+        end
+    end,
+})
+
+controls.autoFarmPositionLock = AutoFarmTab:AddToggle({
+    Name = "Position Lock",
+    Description = "Teleport to saved AutoFarm CFrame",
+    Default = false,
+    Callback = function(value)
+        setState("autoFarmPositionLock", value)
+    end,
+})
+
+controls.autoFarmTeleportInterval = AutoFarmTab:AddSlider({
+    Name = "Teleport Delay",
+    Min = 0.05,
+    Max = 1.00,
+    Default = config.autoFarmTeleportInterval,
+    Increment = 0.01,
+    Suffix = "s",
+    Callback = function(value)
+        config.autoFarmTeleportInterval = value
+    end,
+})
+
+AltTab:AddSection("Respawn")
+
+controls.altAutoReset = AltTab:AddToggle({
+    Name = "AutoReset",
+    Description = "Reset on every character spawn",
+    Default = false,
+    Callback = function(value)
+        setState("altAutoReset", value)
+    end,
+})
+
+AltTab:AddSection("Position")
+
+altPositionLabel = AltTab:AddLabel("Saved: none")
+
+AltTab:AddButton({
+    Name = "SetPosition",
+    Callback = function()
+        if saveCurrentPosition("alt") then
+            notifyStatus("Alt position saved.")
+
+            if controls.altPositionLock then
+                controls.altPositionLock:Set(true)
+            end
+        else
+            notifyStatus("No character root to save.", true, 2.5)
+        end
+    end,
+})
+
+controls.altPositionLock = AltTab:AddToggle({
+    Name = "Position Lock",
+    Description = "Teleport to saved Alt CFrame",
+    Default = false,
+    Callback = function(value)
+        setState("altPositionLock", value)
+    end,
+})
+
+controls.altTeleportInterval = AltTab:AddSlider({
+    Name = "Teleport Delay",
+    Min = 0.05,
+    Max = 1.00,
+    Default = config.altTeleportInterval,
+    Increment = 0.01,
+    Suffix = "s",
+    Callback = function(value)
+        config.altTeleportInterval = value
+    end,
+})
+
+updateSavedPositionLabels()
+
 SettingsTab:AddSection("Configs")
 
 controls.configName = SettingsTab:AddInput({
@@ -2075,6 +2431,7 @@ SettingsTab:AddButton({
             state[key] = false
         end
 
+        disableAutoReset()
         clearTargetHighlight()
         Window:Destroy()
     end,
