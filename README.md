@@ -9,7 +9,7 @@ A lightweight Roblox client script hub with a bundled GUI library loader.
 Copy and execute this:
 
 ```lua
-loadstring(game:HttpGet("https://cdn.jsdelivr.net/gh/sinmirka/BLASPHEMY@51b1147/roblox_rage_hub_client.lua"))()
+loadstring(game:HttpGet("https://cdn.jsdelivr.net/gh/sinmirka/BLASPHEMY@ce9bad2/roblox_rage_hub_client.lua"))()
 ```
 
 ## Files
@@ -19,7 +19,7 @@ loadstring(game:HttpGet("https://cdn.jsdelivr.net/gh/sinmirka/BLASPHEMY@51b1147/
 
 ## Current Tabs
 
-- `Rage` - target selector, target bind, low-health targeting, orbit/smart orbit, camera lock, anti-void, target highlight customization, combat automation, and timing controls.
+- `Rage` - target selector, target/friend lists, target bind, low-health targeting, orbit/smart orbit, camera lock, anti-void, target highlight customization, combat automation, auto-evasive, and timing controls.
 - `AutoFarm` - reserved for future features.
 - `Alt` - reserved for future features.
 - `Settings` - config save/load/delete, GUI themes, hide-GUI bind, reset controls, and advanced timing/anti-void tuning.
