@@ -9,7 +9,7 @@ A lightweight Roblox client script hub with a bundled GUI library loader.
 Copy and execute this:
 
 ```lua
-loadstring(game:HttpGet("https://cdn.jsdelivr.net/gh/sinmirka/BLASPHEMY@main/roblox_rage_hub_client.lua?v=20260629-3"))()
+loadstring(game:HttpGet("https://cdn.jsdelivr.net/gh/sinmirka/BLASPHEMY@25fc6e3/roblox_rage_hub_client.lua"))()
 ```
 
 ## Files
@@ -32,6 +32,6 @@ loadstring(game:HttpGet("https://cdn.jsdelivr.net/gh/sinmirka/BLASPHEMY@main/rob
 
 ## Notes
 
-- The script is loaded directly from the `main` branch, so the loadstring always uses the latest committed version.
+- The loadstring is pinned to a tested commit to avoid stale CDN cache.
 - If the GUI does not appear, check that the loadstring URL and bundled GUI library URL return `200 OK`.
 - Use at your own risk.
