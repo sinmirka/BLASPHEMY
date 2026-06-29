@@ -1,7 +1,7 @@
 -- Rage Hub Client
 -- Replace GUI_LIBRARY_URL with your raw GitHub link to roblox_prism_gui_library.lua.
 
-local GUI_LIBRARY_URL = "https://cdn.jsdelivr.net/gh/sinmirka/BLASPHEMY@main/roblox_prism_gui_library.lua?v=20260629-3"
+local GUI_LIBRARY_URL = "https://cdn.jsdelivr.net/gh/sinmirka/BLASPHEMY@25fc6e3/roblox_prism_gui_library.lua"
 local REQUIRED_GUI_LIBRARY_VERSION = "1.1.1"
 
 local Players = game:GetService("Players")
@@ -21,6 +21,129 @@ local function deferTask(callback)
     end
 end
 
+local bootGui = nil
+local bootLabel = nil
+
+local function getGuiParentCandidates()
+    local parents = {}
+
+    pcall(function()
+        if gethui then
+            table.insert(parents, gethui())
+        end
+    end)
+
+    pcall(function()
+        table.insert(parents, game:GetService("CoreGui"))
+    end)
+
+    if LocalPlayer then
+        pcall(function()
+            table.insert(parents, LocalPlayer:WaitForChild("PlayerGui", 5))
+        end)
+    end
+
+    return parents
+end
+
+local function ensureBootGui()
+    if bootGui then
+        return
+    end
+
+    bootGui = Instance.new("ScreenGui")
+    bootGui.Name = "BLASPHEMY_BootStatus"
+    bootGui.ResetOnSpawn = false
+    bootGui.IgnoreGuiInset = true
+    bootGui.DisplayOrder = 999999
+
+    local frame = Instance.new("Frame")
+    frame.Name = "StatusFrame"
+    frame.AnchorPoint = Vector2.new(0.5, 0)
+    frame.Position = UDim2.new(0.5, 0, 0, 32)
+    frame.Size = UDim2.fromOffset(420, 86)
+    frame.BackgroundColor3 = Color3.fromRGB(16, 18, 24)
+    frame.BorderSizePixel = 0
+    frame.Parent = bootGui
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = frame
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(76, 211, 171)
+    stroke.Transparency = 0.25
+    stroke.Thickness = 1
+    stroke.Parent = frame
+
+    bootLabel = Instance.new("TextLabel")
+    bootLabel.Name = "Status"
+    bootLabel.Position = UDim2.fromOffset(14, 10)
+    bootLabel.Size = UDim2.new(1, -28, 1, -20)
+    bootLabel.BackgroundTransparency = 1
+    bootLabel.Font = Enum.Font.GothamSemibold
+    bootLabel.Text = "BLASPHEMY\nStarting..."
+    bootLabel.TextColor3 = Color3.fromRGB(238, 241, 248)
+    bootLabel.TextSize = 13
+    bootLabel.TextWrapped = true
+    bootLabel.TextXAlignment = Enum.TextXAlignment.Left
+    bootLabel.TextYAlignment = Enum.TextYAlignment.Center
+    bootLabel.Parent = frame
+
+    for _, parent in ipairs(getGuiParentCandidates()) do
+        pcall(function()
+            local existing = parent:FindFirstChild(bootGui.Name)
+            if existing then
+                existing:Destroy()
+            end
+        end)
+    end
+
+    for _, parent in ipairs(getGuiParentCandidates()) do
+        local ok = pcall(function()
+            bootGui.Parent = parent
+        end)
+
+        if ok and bootGui.Parent == parent then
+            return
+        end
+    end
+end
+
+local function setBootStatus(message, isError)
+    ensureBootGui()
+
+    if bootLabel then
+        bootLabel.Text = "BLASPHEMY\n" .. tostring(message)
+        bootLabel.TextColor3 = isError and Color3.fromRGB(255, 110, 122) or Color3.fromRGB(238, 241, 248)
+    end
+
+    if isError then
+        warn("[BLASPHEMY] " .. tostring(message))
+    end
+end
+
+local function closeBootStatus(delaySeconds)
+    local function destroyBoot()
+        if bootGui then
+            bootGui:Destroy()
+            bootGui = nil
+            bootLabel = nil
+        end
+    end
+
+    if task and task.delay then
+        task.delay(delaySeconds or 1.25, destroyBoot)
+    else
+        deferTask(function()
+            wait(delaySeconds or 1.25)
+            destroyBoot()
+        end)
+    end
+end
+
+setBootStatus("Starting loader...")
+
 local Library = nil
 
 if getgenv then
@@ -30,12 +153,14 @@ if getgenv then
 end
 
 if not Library or Library.Version ~= REQUIRED_GUI_LIBRARY_VERSION then
+    setBootStatus("Loading GUI library...")
+
     local ok, loadedLibrary = pcall(function()
         return loadstring(game:HttpGet(GUI_LIBRARY_URL))()
     end)
 
     if not ok then
-        warn("[BLASPHEMY] Failed to load GUI library: " .. tostring(loadedLibrary))
+        setBootStatus("Failed to load GUI library: " .. tostring(loadedLibrary), true)
         return
     end
 
@@ -43,21 +168,42 @@ if not Library or Library.Version ~= REQUIRED_GUI_LIBRARY_VERSION then
 end
 
 if not Library or type(Library.CreateWindow) ~= "function" then
-    warn("[BLASPHEMY] GUI library loaded, but CreateWindow is missing.")
+    setBootStatus("GUI library loaded, but CreateWindow is missing.", true)
     return
 end
 
-local Window = Library:CreateWindow({
-    Name = "PrismRageHub",
-    Title = "Prism Rage Hub",
-    Subtitle = "RightShift to hide/show",
-    Size = Vector2.new(620, 520),
-    ToggleKey = Enum.KeyCode.RightShift,
-})
+setBootStatus("Creating window...")
 
-local RageTab = Window:AddTab("Rage")
-Window:AddTab("AutoFarm")
-Window:AddTab("Alt")
+local windowOk, Window = pcall(function()
+    return Library:CreateWindow({
+        Name = "PrismRageHub",
+        Title = "Prism Rage Hub",
+        Subtitle = "RightShift to hide/show",
+        Size = Vector2.new(620, 520),
+        ToggleKey = Enum.KeyCode.RightShift,
+    })
+end)
+
+if not windowOk then
+    setBootStatus("CreateWindow failed: " .. tostring(Window), true)
+    return
+end
+
+local tabsOk, RageTab = pcall(function()
+    local rage = Window:AddTab("Rage")
+    Window:AddTab("AutoFarm")
+    Window:AddTab("Alt")
+    return rage
+end)
+
+if not tabsOk then
+    setBootStatus("Tab creation failed: " .. tostring(RageTab), true)
+    return
+end
+
+setBootStatus("Building features...")
+
+local bootstrapOk, bootstrapErr = xpcall(function()
 
 local function getVirtualInputManager()
     local ok, service = pcall(function()
@@ -880,3 +1026,18 @@ RageTab:AddSlider({
         config.autoUltimateInterval = value
     end,
 })
+end, function(err)
+    if debug and debug.traceback then
+        return debug.traceback(err)
+    end
+
+    return tostring(err)
+end)
+
+if not bootstrapOk then
+    setBootStatus("Runtime error: " .. tostring(bootstrapErr), true)
+    return
+end
+
+setBootStatus("Loaded.")
+closeBootStatus(1.5)
