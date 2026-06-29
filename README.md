@@ -2,7 +2,7 @@
 
 **Gods won't save them.**
 
-A lightweight Roblox client script hub with a separate GUI library loader.
+A lightweight Roblox client script hub with a bundled GUI library loader.
 
 ## Loadstring
 
@@ -15,9 +15,7 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/sinmirka/BLASPHEMY/ma
 ## Files
 
 - `roblox_rage_hub_client.lua` - main BLASPHEMY client loader and feature script.
-- `roblox_prism_gui_library.lua` - bundled GUI library copy.
-- GUI library canonical source:
-  `https://raw.githubusercontent.com/sinmirka/sinmirka-ui-lib/main/roblox_prism_gui_library.lua`
+- `roblox_prism_gui_library.lua` - bundled GUI library.
 
 ## Current Tabs
 
@@ -35,5 +33,5 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/sinmirka/BLASPHEMY/ma
 ## Notes
 
 - The script is loaded directly from the `main` branch, so the loadstring always uses the latest committed version.
-- If the GUI does not appear, check that both raw GitHub URLs above return `200 OK`.
+- If the GUI does not appear, check that the loadstring URL and bundled GUI library raw URL return `200 OK`.
 - Use at your own risk.

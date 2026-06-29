@@ -1,14 +1,25 @@
 -- Rage Hub Client
 -- Replace GUI_LIBRARY_URL with your raw GitHub link to roblox_prism_gui_library.lua.
 
-local GUI_LIBRARY_URL = "https://raw.githubusercontent.com/sinmirka/sinmirka-ui-lib/main/roblox_prism_gui_library.lua"
-local REQUIRED_GUI_LIBRARY_VERSION = "1.1.0"
+local GUI_LIBRARY_URL = "https://raw.githubusercontent.com/sinmirka/BLASPHEMY/main/roblox_prism_gui_library.lua"
+local REQUIRED_GUI_LIBRARY_VERSION = "1.1.1"
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 
 local LocalPlayer = Players.LocalPlayer
+local ZERO_VECTOR = Vector3.new(0, 0, 0)
+
+local function deferTask(callback)
+    if task and task.defer then
+        task.defer(callback)
+    elseif task and task.spawn then
+        task.spawn(callback)
+    else
+        coroutine.wrap(callback)()
+    end
+end
 
 local Library = nil
 
@@ -482,8 +493,8 @@ RunService.Heartbeat:Connect(function(deltaTime)
         if root.Position.Y > config.antiVoidSafeY then
             lastSafeCFrame = root.CFrame
         elseif state.antiVoid and root.Position.Y < config.antiVoidTriggerY and lastSafeCFrame then
-            root.AssemblyLinearVelocity = Vector3.zero
-            root.AssemblyAngularVelocity = Vector3.zero
+            root.AssemblyLinearVelocity = ZERO_VECTOR
+            root.AssemblyAngularVelocity = ZERO_VECTOR
             root.CFrame = lastSafeCFrame + Vector3.new(0, 4, 0)
         end
     end
@@ -511,8 +522,8 @@ RunService.Heartbeat:Connect(function(deltaTime)
 
         local alpha = math.clamp(deltaTime * config.smartMoveSpeed, 0, 1)
         local nextPosition = root.Position:Lerp(smartPoint, alpha)
-        root.AssemblyLinearVelocity = Vector3.zero
-        root.AssemblyAngularVelocity = Vector3.zero
+        root.AssemblyLinearVelocity = ZERO_VECTOR
+        root.AssemblyAngularVelocity = ZERO_VECTOR
         root.CFrame = CFrame.new(nextPosition, targetRoot.Position)
         return
     end
@@ -526,8 +537,8 @@ RunService.Heartbeat:Connect(function(deltaTime)
     )
 
     local position = targetRoot.Position + offset
-    root.AssemblyLinearVelocity = Vector3.zero
-    root.AssemblyAngularVelocity = Vector3.zero
+    root.AssemblyLinearVelocity = ZERO_VECTOR
+    root.AssemblyAngularVelocity = ZERO_VECTOR
     root.CFrame = CFrame.new(position, targetRoot.Position)
 end)
 
@@ -580,13 +591,13 @@ RageTab:AddButton({
 })
 
 Players.PlayerAdded:Connect(function()
-    task.defer(function()
+    deferTask(function()
         targetDropdown:SetOptions(getTargetOptions(), state.targetName)
     end)
 end)
 
 Players.PlayerRemoving:Connect(function()
-    task.defer(function()
+    deferTask(function()
         targetDropdown:SetOptions(getTargetOptions(), state.targetName)
     end)
 end)

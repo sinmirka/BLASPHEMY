@@ -9,7 +9,17 @@ local LocalPlayer = Players.LocalPlayer
 
 local Library = {}
 Library.__index = Library
-Library.Version = "1.1.0"
+Library.Version = "1.1.1"
+
+local unpackValues = table.unpack or unpack
+
+local function spawnTask(callback)
+    if task and task.spawn then
+        task.spawn(callback)
+    else
+        coroutine.wrap(callback)()
+    end
+end
 
 local Theme = {
     Background = Color3.fromRGB(15, 17, 23),
@@ -41,10 +51,12 @@ local function safeCall(callback, ...)
         return
     end
 
-    local args = table.pack(...)
-    task.spawn(function()
+    local args = { ... }
+    local argCount = select("#", ...)
+
+    spawnTask(function()
         local ok, err = pcall(function()
-            callback(table.unpack(args, 1, args.n))
+            callback(unpackValues(args, 1, argCount))
         end)
 
         if not ok then
