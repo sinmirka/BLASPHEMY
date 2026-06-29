@@ -9,7 +9,7 @@ local LocalPlayer = Players.LocalPlayer
 
 local Library = {}
 Library.__index = Library
-Library.Version = "1.1.1"
+Library.Version = "1.2.0"
 
 local unpackValues = table.unpack or unpack
 
@@ -37,6 +37,99 @@ local Theme = {
     SwitchOff = Color3.fromRGB(56, 63, 79),
     Knob = Color3.fromRGB(248, 250, 252),
 }
+
+Library.ThemeOrder = { "Dark", "Emerald", "Amethyst", "Crimson", "Light" }
+Library.Themes = {
+    Dark = {
+        Background = Color3.fromRGB(15, 17, 23),
+        BackgroundSoft = Color3.fromRGB(20, 23, 31),
+        Sidebar = Color3.fromRGB(18, 21, 29),
+        Header = Color3.fromRGB(24, 28, 38),
+        Card = Color3.fromRGB(27, 31, 42),
+        CardHover = Color3.fromRGB(33, 38, 51),
+        Stroke = Color3.fromRGB(58, 67, 86),
+        Text = Color3.fromRGB(240, 243, 249),
+        Muted = Color3.fromRGB(143, 153, 171),
+        Accent = Color3.fromRGB(76, 211, 171),
+        AccentBlue = Color3.fromRGB(91, 148, 255),
+        Danger = Color3.fromRGB(239, 91, 106),
+        SwitchOff = Color3.fromRGB(56, 63, 79),
+        Knob = Color3.fromRGB(248, 250, 252),
+    },
+    Emerald = {
+        Background = Color3.fromRGB(12, 20, 18),
+        BackgroundSoft = Color3.fromRGB(17, 29, 25),
+        Sidebar = Color3.fromRGB(14, 25, 22),
+        Header = Color3.fromRGB(20, 37, 32),
+        Card = Color3.fromRGB(22, 42, 36),
+        CardHover = Color3.fromRGB(29, 56, 48),
+        Stroke = Color3.fromRGB(60, 94, 81),
+        Text = Color3.fromRGB(237, 247, 243),
+        Muted = Color3.fromRGB(139, 171, 159),
+        Accent = Color3.fromRGB(66, 220, 151),
+        AccentBlue = Color3.fromRGB(98, 179, 255),
+        Danger = Color3.fromRGB(239, 91, 106),
+        SwitchOff = Color3.fromRGB(48, 73, 66),
+        Knob = Color3.fromRGB(248, 250, 252),
+    },
+    Amethyst = {
+        Background = Color3.fromRGB(17, 15, 24),
+        BackgroundSoft = Color3.fromRGB(24, 21, 35),
+        Sidebar = Color3.fromRGB(20, 18, 31),
+        Header = Color3.fromRGB(31, 26, 45),
+        Card = Color3.fromRGB(35, 30, 51),
+        CardHover = Color3.fromRGB(44, 37, 65),
+        Stroke = Color3.fromRGB(78, 67, 105),
+        Text = Color3.fromRGB(244, 240, 249),
+        Muted = Color3.fromRGB(163, 150, 181),
+        Accent = Color3.fromRGB(174, 112, 255),
+        AccentBlue = Color3.fromRGB(96, 161, 255),
+        Danger = Color3.fromRGB(239, 91, 127),
+        SwitchOff = Color3.fromRGB(63, 55, 80),
+        Knob = Color3.fromRGB(248, 250, 252),
+    },
+    Crimson = {
+        Background = Color3.fromRGB(22, 14, 16),
+        BackgroundSoft = Color3.fromRGB(31, 18, 21),
+        Sidebar = Color3.fromRGB(27, 16, 19),
+        Header = Color3.fromRGB(41, 22, 27),
+        Card = Color3.fromRGB(48, 27, 32),
+        CardHover = Color3.fromRGB(63, 35, 42),
+        Stroke = Color3.fromRGB(98, 59, 67),
+        Text = Color3.fromRGB(250, 241, 243),
+        Muted = Color3.fromRGB(185, 145, 153),
+        Accent = Color3.fromRGB(255, 91, 112),
+        AccentBlue = Color3.fromRGB(255, 156, 91),
+        Danger = Color3.fromRGB(255, 84, 84),
+        SwitchOff = Color3.fromRGB(76, 49, 55),
+        Knob = Color3.fromRGB(248, 250, 252),
+    },
+    Light = {
+        Background = Color3.fromRGB(235, 238, 244),
+        BackgroundSoft = Color3.fromRGB(244, 246, 250),
+        Sidebar = Color3.fromRGB(224, 228, 236),
+        Header = Color3.fromRGB(250, 251, 253),
+        Card = Color3.fromRGB(255, 255, 255),
+        CardHover = Color3.fromRGB(238, 244, 250),
+        Stroke = Color3.fromRGB(194, 204, 218),
+        Text = Color3.fromRGB(24, 30, 42),
+        Muted = Color3.fromRGB(93, 105, 124),
+        Accent = Color3.fromRGB(30, 154, 118),
+        AccentBlue = Color3.fromRGB(65, 117, 230),
+        Danger = Color3.fromRGB(214, 64, 80),
+        SwitchOff = Color3.fromRGB(188, 197, 210),
+        Knob = Color3.fromRGB(255, 255, 255),
+    },
+}
+
+local function applyThemePreset(themeName)
+    local preset = Library.Themes[themeName] or Library.Themes.Dark
+    for key, value in pairs(preset) do
+        Theme[key] = value
+    end
+end
+
+applyThemePreset("Dark")
 
 local function create(className, properties)
     local instance = Instance.new(className)
@@ -393,6 +486,109 @@ function Library:CreateWindow(config)
         screenGui.Enabled = not screenGui.Enabled
     end
 
+    function window:SetToggleKey(keyCode)
+        if keyCode and typeof(keyCode) == "EnumItem" then
+            toggleKey = keyCode
+            self.ToggleKey = keyCode
+            return true
+        end
+
+        return false
+    end
+
+    function window:GetToggleKey()
+        return toggleKey
+    end
+
+    function window:RefreshTheme()
+        main.BackgroundColor3 = Theme.Background
+        titleBar.BackgroundColor3 = Theme.Header
+        sidebar.BackgroundColor3 = Theme.Sidebar
+        accentLine.BackgroundColor3 = Theme.Accent
+
+        for _, descendant in ipairs(main:GetDescendants()) do
+            if descendant:IsA("UIStroke") then
+                descendant.Color = Theme.Stroke
+            elseif descendant:IsA("TextLabel") or descendant:IsA("TextButton") or descendant:IsA("TextBox") then
+                if descendant.Name == "Close" then
+                    descendant.TextColor3 = Theme.Danger
+                elseif descendant.Name == "Description" or descendant.Name == "Subtitle" or descendant.Name == "Selected" then
+                    descendant.TextColor3 = Theme.Muted
+                elseif descendant.Name == "Value" or descendant.Name == "Arrow" or descendant.Name == "Section" or descendant.Name == "Key" then
+                    descendant.TextColor3 = Theme.Accent
+                else
+                    descendant.TextColor3 = Theme.Text
+                end
+            end
+
+            if descendant:IsA("Frame") or descendant:IsA("TextButton") or descendant:IsA("TextBox") or descendant:IsA("ScrollingFrame") then
+                if descendant.Name == "TitleBar" or descendant.Name == "HeaderCornerCover" then
+                    descendant.BackgroundColor3 = Theme.Header
+                elseif descendant.Name == "Sidebar" then
+                    descendant.BackgroundColor3 = Theme.Sidebar
+                elseif descendant.Name == "AccentLine" or descendant.Name == "Accent" or descendant.Name == "Fill" then
+                    descendant.BackgroundColor3 = Theme.Accent
+                elseif descendant.Name == "Switch" then
+                    local knob = descendant:FindFirstChild("Knob")
+                    if knob and knob.Position.X.Offset > 10 then
+                        descendant.BackgroundColor3 = Theme.Accent
+                    else
+                        descendant.BackgroundColor3 = Theme.SwitchOff
+                    end
+                elseif descendant.Name == "Knob" then
+                    descendant.BackgroundColor3 = Theme.Knob
+                elseif descendant.Name == "Close" then
+                    descendant.BackgroundColor3 = Color3.fromRGB(
+                        math.floor((Theme.Card.R * 255 + Theme.Danger.R * 255) / 2),
+                        math.floor((Theme.Card.G * 255 + Theme.Danger.G * 255) / 2),
+                        math.floor((Theme.Card.B * 255 + Theme.Danger.B * 255) / 2)
+                    )
+                elseif descendant.Name == "Minimize"
+                    or descendant.Name == "Toggle"
+                    or descendant.Name == "Slider"
+                    or descendant.Name == "Dropdown"
+                    or descendant.Name == "Button"
+                    or descendant.Name == "Label"
+                    or descendant.Name == "Keybind"
+                    or descendant.Name == "ColorPicker"
+                    or descendant.Name == "Input" then
+                    descendant.BackgroundColor3 = Theme.Card
+                elseif descendant.Name == "Track" then
+                    descendant.BackgroundColor3 = Theme.SwitchOff
+                elseif descendant.Name == "Options" or descendant.Name == "TextBox" then
+                    descendant.BackgroundColor3 = Theme.BackgroundSoft
+                end
+            end
+        end
+
+        if self.SelectedTab then
+            self:SelectTab(self.SelectedTab)
+        end
+    end
+
+    function window:SetTheme(themeName)
+        if not Library.Themes[themeName] then
+            return false
+        end
+
+        applyThemePreset(themeName)
+        self.ThemeName = themeName
+        self:RefreshTheme()
+        return true
+    end
+
+    function window:GetTheme()
+        return self.ThemeName or "Dark"
+    end
+
+    function window:GetThemeNames()
+        local names = {}
+        for _, name in ipairs(Library.ThemeOrder) do
+            table.insert(names, name)
+        end
+        return names
+    end
+
     function window:Destroy()
         screenGui:Destroy()
     end
@@ -697,6 +893,83 @@ function Tab:AddButton(config)
     end)
 
     return row
+end
+
+function Tab:AddInput(config)
+    config = config or {}
+
+    local value = config.Default or ""
+    local object = {}
+
+    local row = create("Frame", {
+        Name = "Input",
+        LayoutOrder = self:_nextOrder(),
+        Size = UDim2.new(1, 0, 0, 62),
+        BackgroundColor3 = Theme.Card,
+        BorderSizePixel = 0,
+        Parent = self.Page,
+    })
+    addCorner(row, 8)
+    addStroke(row, 0.58)
+
+    create("TextLabel", {
+        Name = "Label",
+        Position = UDim2.fromOffset(14, 8),
+        Size = UDim2.new(1, -28, 0, 18),
+        BackgroundTransparency = 1,
+        Font = Enum.Font.GothamSemibold,
+        Text = config.Name or "Input",
+        TextColor3 = Theme.Text,
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextTruncate = Enum.TextTruncate.AtEnd,
+        Parent = row,
+    })
+
+    local box = create("TextBox", {
+        Name = "TextBox",
+        Position = UDim2.fromOffset(14, 32),
+        Size = UDim2.new(1, -28, 0, 22),
+        BackgroundColor3 = Theme.BackgroundSoft,
+        BorderSizePixel = 0,
+        ClearTextOnFocus = false,
+        Font = Enum.Font.Gotham,
+        PlaceholderText = config.Placeholder or "",
+        Text = tostring(value),
+        TextColor3 = Theme.Text,
+        PlaceholderColor3 = Theme.Muted,
+        TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextTruncate = Enum.TextTruncate.AtEnd,
+        Parent = row,
+    })
+    addCorner(box, 6)
+    addStroke(box, 0.72)
+
+    create("UIPadding", {
+        PaddingLeft = UDim.new(0, 8),
+        PaddingRight = UDim.new(0, 8),
+        Parent = box,
+    })
+
+    function object:Set(nextValue, silent)
+        value = tostring(nextValue or "")
+        box.Text = value
+
+        if not silent then
+            safeCall(config.Callback, value)
+        end
+    end
+
+    function object:Get()
+        return value
+    end
+
+    box.FocusLost:Connect(function()
+        object:Set(box.Text)
+    end)
+
+    return object
 end
 
 function Tab:AddToggle(config)
