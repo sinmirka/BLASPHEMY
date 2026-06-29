@@ -9,7 +9,7 @@ local LocalPlayer = Players.LocalPlayer
 
 local Library = {}
 Library.__index = Library
-Library.Version = "1.3.0"
+Library.Version = "1.3.1"
 
 local unpackValues = table.unpack or unpack
 
@@ -249,12 +249,20 @@ local function getViewportSize()
 end
 
 local function setButtonHover(button, normalColor, hoverColor)
+    local function resolveColor(color)
+        if type(color) == "function" then
+            return color()
+        end
+
+        return color
+    end
+
     button.MouseEnter:Connect(function()
-        tween(button, 0.12, { BackgroundColor3 = hoverColor })
+        tween(button, 0.12, { BackgroundColor3 = resolveColor(hoverColor) })
     end)
 
     button.MouseLeave:Connect(function()
-        tween(button, 0.12, { BackgroundColor3 = normalColor })
+        tween(button, 0.12, { BackgroundColor3 = resolveColor(normalColor) })
     end)
 end
 
@@ -303,10 +311,10 @@ function Library:CreateWindow(config)
     addCorner(main, 8)
     addStroke(main, 0.22)
 
-    create("UIGradient", {
+    local mainGradient = create("UIGradient", {
         Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 23, 31)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(12, 14, 19)),
+            ColorSequenceKeypoint.new(0, Theme.BackgroundSoft),
+            ColorSequenceKeypoint.new(1, Theme.Background),
         }),
         Rotation = 90,
         Parent = main,
@@ -339,7 +347,7 @@ function Library:CreateWindow(config)
         Parent = titleBar,
     })
 
-    create("UIGradient", {
+    local accentGradient = create("UIGradient", {
         Color = ColorSequence.new({
             ColorSequenceKeypoint.new(0, Theme.Accent),
             ColorSequenceKeypoint.new(1, Theme.AccentBlue),
@@ -380,7 +388,7 @@ function Library:CreateWindow(config)
         AnchorPoint = Vector2.new(1, 0.5),
         Position = UDim2.new(1, -48, 0.5, 0),
         Size = UDim2.fromOffset(28, 24),
-        BackgroundColor3 = Color3.fromRGB(36, 42, 54),
+        BackgroundColor3 = Theme.Card,
         AutoButtonColor = false,
         Font = Enum.Font.GothamBold,
         Text = "-",
@@ -389,14 +397,22 @@ function Library:CreateWindow(config)
         Parent = titleBar,
     })
     addCorner(minimizeButton, 6)
-    setButtonHover(minimizeButton, Color3.fromRGB(36, 42, 54), Color3.fromRGB(47, 55, 70))
+    setButtonHover(minimizeButton, function()
+        return Theme.Card
+    end, function()
+        return Theme.CardHover
+    end)
 
     local closeButton = create("TextButton", {
         Name = "Close",
         AnchorPoint = Vector2.new(1, 0.5),
         Position = UDim2.new(1, -14, 0.5, 0),
         Size = UDim2.fromOffset(28, 24),
-        BackgroundColor3 = Color3.fromRGB(43, 36, 46),
+        BackgroundColor3 = Color3.fromRGB(
+            math.floor((Theme.Card.R * 255 + Theme.Danger.R * 255) / 2),
+            math.floor((Theme.Card.G * 255 + Theme.Danger.G * 255) / 2),
+            math.floor((Theme.Card.B * 255 + Theme.Danger.B * 255) / 2)
+        ),
         AutoButtonColor = false,
         Font = Enum.Font.GothamBold,
         Text = "X",
@@ -405,7 +421,15 @@ function Library:CreateWindow(config)
         Parent = titleBar,
     })
     addCorner(closeButton, 6)
-    setButtonHover(closeButton, Color3.fromRGB(43, 36, 46), Color3.fromRGB(63, 43, 53))
+    setButtonHover(closeButton, function()
+        return Color3.fromRGB(
+            math.floor((Theme.Card.R * 255 + Theme.Danger.R * 255) / 2),
+            math.floor((Theme.Card.G * 255 + Theme.Danger.G * 255) / 2),
+            math.floor((Theme.Card.B * 255 + Theme.Danger.B * 255) / 2)
+        )
+    end, function()
+        return Theme.Danger
+    end)
 
     local body = create("Frame", {
         Name = "Body",
@@ -505,6 +529,14 @@ function Library:CreateWindow(config)
         titleBar.BackgroundColor3 = Theme.Header
         sidebar.BackgroundColor3 = Theme.Sidebar
         accentLine.BackgroundColor3 = Theme.Accent
+        mainGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Theme.BackgroundSoft),
+            ColorSequenceKeypoint.new(1, Theme.Background),
+        })
+        accentGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Theme.Accent),
+            ColorSequenceKeypoint.new(1, Theme.AccentBlue),
+        })
 
         for _, descendant in ipairs(main:GetDescendants()) do
             if descendant:IsA("UIStroke") then
@@ -554,6 +586,10 @@ function Library:CreateWindow(config)
                     or descendant.Name == "ColorPicker"
                     or descendant.Name == "Input" then
                     descendant.BackgroundColor3 = Theme.Card
+                elseif descendant.Name == "Key" then
+                    descendant.BackgroundColor3 = Theme.BackgroundSoft
+                elseif descendant.Name == "Option" then
+                    descendant.BackgroundColor3 = Theme.BackgroundSoft
                 elseif descendant.Name == "Track" then
                     descendant.BackgroundColor3 = Theme.SwitchOff
                 elseif descendant.Name == "Options" or descendant.Name == "TextBox" then
@@ -622,7 +658,7 @@ function Library:CreateWindow(config)
             local selected = item == tab
             item.Page.Visible = selected
             tween(item.Button, 0.15, {
-                BackgroundColor3 = selected and Theme.CardHover or Color3.fromRGB(21, 25, 34),
+                BackgroundColor3 = selected and Theme.CardHover or Theme.BackgroundSoft,
             })
             item.Button.TextColor3 = selected and Theme.Text or Theme.Muted
             item.Accent.Visible = selected
@@ -641,7 +677,7 @@ function Library:CreateWindow(config)
             Name = tabName .. "Tab",
             LayoutOrder = order,
             Size = UDim2.new(1, 0, 0, 32),
-            BackgroundColor3 = Color3.fromRGB(21, 25, 34),
+            BackgroundColor3 = Theme.BackgroundSoft,
             BorderSizePixel = 0,
             AutoButtonColor = false,
             Font = Enum.Font.GothamSemibold,
@@ -661,7 +697,7 @@ function Library:CreateWindow(config)
         local accent = create("Frame", {
             Name = "Accent",
             AnchorPoint = Vector2.new(0, 0.5),
-            Position = UDim2.new(0, 6, 0.5, 0),
+            Position = UDim2.new(0, 2, 0.5, 0),
             Size = UDim2.fromOffset(3, 16),
             BackgroundColor3 = Theme.Accent,
             BorderSizePixel = 0,
@@ -716,13 +752,13 @@ function Library:CreateWindow(config)
 
         button.MouseEnter:Connect(function()
             if self.SelectedTab ~= tab then
-                tween(button, 0.12, { BackgroundColor3 = Color3.fromRGB(26, 31, 42) })
+                tween(button, 0.12, { BackgroundColor3 = Theme.Card })
             end
         end)
 
         button.MouseLeave:Connect(function()
             if self.SelectedTab ~= tab then
-                tween(button, 0.12, { BackgroundColor3 = Color3.fromRGB(21, 25, 34) })
+                tween(button, 0.12, { BackgroundColor3 = Theme.BackgroundSoft })
             end
         end)
 
@@ -879,7 +915,11 @@ function Tab:AddButton(config)
     })
     addCorner(row, 6)
     addStroke(row, 0.58)
-    setButtonHover(row, Theme.Card, Theme.CardHover)
+    setButtonHover(row, function()
+        return Theme.Card
+    end, function()
+        return Theme.CardHover
+    end)
 
     create("TextLabel", {
         Name = "Label",
@@ -1011,7 +1051,11 @@ function Tab:AddToggle(config)
     })
     addCorner(row, 6)
     addStroke(row, 0.58)
-    setButtonHover(row, Theme.Card, Theme.CardHover)
+    setButtonHover(row, function()
+        return Theme.Card
+    end, function()
+        return Theme.CardHover
+    end)
 
     create("TextLabel", {
         Name = "Label",
@@ -1149,7 +1193,7 @@ function Tab:AddSlider(config)
         Name = "Track",
         Position = UDim2.fromOffset(10, 35),
         Size = UDim2.new(1, -20, 0, 6),
-        BackgroundColor3 = Color3.fromRGB(50, 57, 73),
+        BackgroundColor3 = Theme.SwitchOff,
         BorderSizePixel = 0,
         AutoButtonColor = false,
         Text = "",
@@ -1320,7 +1364,7 @@ function Tab:AddDropdown(config)
         Name = "Options",
         Position = UDim2.fromOffset(8, 52),
         Size = UDim2.new(1, -16, 0, 0),
-        BackgroundColor3 = Color3.fromRGB(22, 26, 35),
+        BackgroundColor3 = Theme.BackgroundSoft,
         BorderSizePixel = 0,
         ScrollBarThickness = 2,
         ScrollBarImageColor3 = Theme.Accent,
@@ -1367,7 +1411,7 @@ function Tab:AddDropdown(config)
                 Name = "Option",
                 LayoutOrder = index,
                 Size = UDim2.new(1, 0, 0, 22),
-                BackgroundColor3 = tostring(option) == tostring(value) and Color3.fromRGB(34, 43, 56) or Color3.fromRGB(27, 32, 43),
+                BackgroundColor3 = tostring(option) == tostring(value) and Theme.CardHover or Theme.BackgroundSoft,
                 BorderSizePixel = 0,
                 AutoButtonColor = false,
                 Font = Enum.Font.Gotham,
@@ -1611,7 +1655,7 @@ function Tab:AddMultiDropdown(config)
                 Name = "Option",
                 LayoutOrder = index,
                 Size = UDim2.new(1, 0, 0, 22),
-                BackgroundColor3 = enabled and Color3.fromRGB(34, 43, 56) or Color3.fromRGB(27, 32, 43),
+                BackgroundColor3 = enabled and Theme.CardHover or Theme.BackgroundSoft,
                 BorderSizePixel = 0,
                 AutoButtonColor = false,
                 Font = Enum.Font.Gotham,
@@ -1721,7 +1765,11 @@ function Tab:AddKeybind(config)
     })
     addCorner(row, 6)
     addStroke(row, 0.58)
-    setButtonHover(row, Theme.Card, Theme.CardHover)
+    setButtonHover(row, function()
+        return Theme.Card
+    end, function()
+        return Theme.CardHover
+    end)
 
     create("TextLabel", {
         Name = "Label",
@@ -1742,7 +1790,7 @@ function Tab:AddKeybind(config)
         AnchorPoint = Vector2.new(1, 0.5),
         Position = UDim2.new(1, -10, 0.5, 0),
         Size = UDim2.fromOffset(86, 24),
-        BackgroundColor3 = Color3.fromRGB(22, 26, 35),
+        BackgroundColor3 = Theme.BackgroundSoft,
         BorderSizePixel = 0,
         Font = Enum.Font.GothamBold,
         Text = "None",
@@ -1765,7 +1813,7 @@ function Tab:AddKeybind(config)
     local function render()
         keyBox.Text = listening and "Press..." or keyName(value)
         keyBox.TextColor3 = value and Theme.Text or Theme.Muted
-        keyBox.BackgroundColor3 = listening and Color3.fromRGB(32, 44, 51) or Color3.fromRGB(22, 26, 35)
+        keyBox.BackgroundColor3 = listening and Theme.CardHover or Theme.BackgroundSoft
     end
 
     function object:Set(nextValue, silent)
