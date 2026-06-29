@@ -1,8 +1,8 @@
 -- Rage Hub Client
 -- Replace GUI_LIBRARY_URL with your raw GitHub link to roblox_prism_gui_library.lua.
 
-local GUI_LIBRARY_URL = "https://cdn.jsdelivr.net/gh/sinmirka/BLASPHEMY@c17ea44/roblox_prism_gui_library.lua"
-local REQUIRED_GUI_LIBRARY_VERSION = "1.2.0"
+local GUI_LIBRARY_URL = "https://cdn.jsdelivr.net/gh/sinmirka/BLASPHEMY@50a1d39/roblox_prism_gui_library.lua"
+local REQUIRED_GUI_LIBRARY_VERSION = "1.3.0"
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -253,6 +253,7 @@ local state = {
     autoUltimate = false,
     autoBurst = false,
     autoDash = false,
+    autoEvasive = false,
     findLowPlayers = false,
     orbit = false,
     smartOrbit = false,
@@ -269,6 +270,8 @@ local config = {
     autoUltimateInterval = 1.00,
     autoBurstInterval = 0.10,
     autoDashInterval = 0.10,
+    autoEvasiveInterval = 0.10,
+    evasiveSideHoldTime = 0.045,
     keyHoldTime = 0.015,
     mouseHoldTime = 0.012,
     orbitRadius = 5,
@@ -290,6 +293,8 @@ local settings = {
     selectedConfig = "default",
     menuBind = "RightShift",
 }
+local targetList = {}
+local friendList = {}
 
 local stateKeys = {
     "autoM1",
@@ -299,6 +304,7 @@ local stateKeys = {
     "autoUltimate",
     "autoBurst",
     "autoDash",
+    "autoEvasive",
     "findLowPlayers",
     "orbit",
     "smartOrbit",
@@ -314,6 +320,8 @@ local configKeys = {
     "autoUltimateInterval",
     "autoBurstInterval",
     "autoDashInterval",
+    "autoEvasiveInterval",
+    "evasiveSideHoldTime",
     "keyHoldTime",
     "mouseHoldTime",
     "orbitRadius",
@@ -469,6 +477,32 @@ local function sendKey(keyCode)
     return downOk and upOk
 end
 
+local function sendEvasiveDash()
+    local dDownOk = tryVirtualInput(function()
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.D, false, game)
+    end)
+
+    task.wait(0.006)
+
+    local qDownOk = tryVirtualInput(function()
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Q, false, game)
+    end)
+
+    task.wait(config.keyHoldTime)
+
+    local qUpOk = tryVirtualInput(function()
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Q, false, game)
+    end)
+
+    task.wait(config.evasiveSideHoldTime)
+
+    local dUpOk = tryVirtualInput(function()
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.D, false, game)
+    end)
+
+    return dDownOk and qDownOk and qUpOk and dUpOk
+end
+
 local function startLoop(name, intervalGetter, callback)
     if loopRunning[name] then
         return
@@ -556,7 +590,42 @@ local function setState(name, value)
         end, function()
             sendKey(Enum.KeyCode.Q)
         end)
+    elseif name == "autoEvasive" then
+        startLoop(name, function()
+            return config.autoEvasiveInterval
+        end, sendEvasiveDash)
     end
+end
+
+local function listFromMap(map)
+    local list = {}
+
+    for name, enabled in pairs(map or {}) do
+        if enabled == true then
+            table.insert(list, name)
+        end
+    end
+
+    table.sort(list)
+    return list
+end
+
+local function mapFromList(list)
+    local map = {}
+
+    if type(list) ~= "table" then
+        return map
+    end
+
+    for key, value in pairs(list) do
+        if type(key) == "number" then
+            map[tostring(value)] = true
+        elseif value == true then
+            map[tostring(key)] = true
+        end
+    end
+
+    return map
 end
 
 local function getTargetOptions()
@@ -571,43 +640,81 @@ local function getTargetOptions()
     return options
 end
 
-local function getNearestTarget()
-    local localRoot = getRoot()
-    local nearestPlayer = nil
-    local nearestDistance = math.huge
+local function getPlayerOptions()
+    local options = {}
+    local seen = {}
 
-    if not localRoot then
-        return nil
-    end
-
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            local root = getRoot(player.Character)
-            local humanoid = getHumanoid(player.Character)
-
-            if root and humanoid and humanoid.Health > 0 then
-                local distance = (root.Position - localRoot.Position).Magnitude
-                if distance < nearestDistance then
-                    nearestDistance = distance
-                    nearestPlayer = player
-                end
-            end
+    local function addName(name)
+        name = tostring(name or "")
+        if name ~= "" and not seen[name] then
+            seen[name] = true
+            table.insert(options, name)
         end
     end
 
-    return nearestPlayer
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            addName(player.Name)
+        end
+    end
+
+    for name, enabled in pairs(targetList) do
+        if enabled then
+            addName(name)
+        end
+    end
+
+    for name, enabled in pairs(friendList) do
+        if enabled then
+            addName(name)
+        end
+    end
+
+    table.sort(options)
+    return options
 end
 
-local function getLowestHealthTarget()
+local function updatePlayerControls()
+    if targetDropdown then
+        targetDropdown:SetOptions(getTargetOptions(), state.targetName)
+    end
+
+    local options = getPlayerOptions()
+
+    if controls.targetList then
+        controls.targetList:SetOptions(options, listFromMap(targetList))
+    end
+
+    if controls.friendList then
+        controls.friendList:SetOptions(options, listFromMap(friendList))
+    end
+end
+
+local function getTargetParts(player)
+    if not player or player == LocalPlayer or friendList[player.Name] then
+        return nil, nil
+    end
+
+    local root = getRoot(player.Character)
+    local humanoid = getHumanoid(player.Character)
+
+    if not root or not humanoid or humanoid.Health <= 0 then
+        return nil, nil
+    end
+
+    return root, humanoid
+end
+
+local function getPriorityTarget()
     local lowestPlayer = nil
     local lowestScore = math.huge
 
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            local humanoid = getHumanoid(player.Character)
-            local root = getRoot(player.Character)
+    for name, enabled in pairs(targetList) do
+        if enabled and not friendList[name] then
+            local player = Players:FindFirstChild(name)
+            local _, humanoid = getTargetParts(player)
 
-            if humanoid and root and humanoid.Health > 0 then
+            if humanoid then
                 local maxHealth = math.max(humanoid.MaxHealth, 1)
                 local healthScore = humanoid.Health / maxHealth
 
@@ -622,7 +729,60 @@ local function getLowestHealthTarget()
     return lowestPlayer
 end
 
+local function getNearestTarget()
+    local localRoot = getRoot()
+    local nearestPlayer = nil
+    local nearestDistance = math.huge
+
+    if not localRoot then
+        return nil
+    end
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        local root = nil
+        local humanoid = nil
+
+        root, humanoid = getTargetParts(player)
+
+        if root and humanoid then
+            local distance = (root.Position - localRoot.Position).Magnitude
+            if distance < nearestDistance then
+                nearestDistance = distance
+                nearestPlayer = player
+            end
+        end
+    end
+
+    return nearestPlayer
+end
+
+local function getLowestHealthTarget()
+    local lowestPlayer = nil
+    local lowestScore = math.huge
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        local _, humanoid = getTargetParts(player)
+
+        if humanoid then
+            local maxHealth = math.max(humanoid.MaxHealth, 1)
+            local healthScore = humanoid.Health / maxHealth
+
+            if healthScore < lowestScore then
+                lowestScore = healthScore
+                lowestPlayer = player
+            end
+        end
+    end
+
+    return lowestPlayer
+end
+
 local function getDynamicTarget()
+    local priorityTarget = getPriorityTarget()
+    if priorityTarget then
+        return priorityTarget
+    end
+
     if state.findLowPlayers then
         return getLowestHealthTarget() or getNearestTarget()
     end
@@ -631,9 +791,14 @@ local function getDynamicTarget()
 end
 
 local function getTargetPlayer()
+    local priorityTarget = getPriorityTarget()
+    if priorityTarget then
+        return priorityTarget
+    end
+
     if state.targetName ~= "Nearest" then
         local player = Players:FindFirstChild(state.targetName)
-        if player and player ~= LocalPlayer then
+        if getTargetParts(player) then
             return player
         end
     end
@@ -650,9 +815,7 @@ local function lockDynamicTarget()
     state.targetName = target.Name
     smartPoint = nil
 
-    if targetDropdown then
-        targetDropdown:SetOptions(getTargetOptions(), state.targetName)
-    end
+    updatePlayerControls()
 end
 
 local function keyToName(keyCode)
@@ -814,6 +977,8 @@ local function collectConfigData()
     end
 
     data.config.highlightColor = colorToData(config.highlightColor)
+    data.targetList = listFromMap(targetList)
+    data.friendList = listFromMap(friendList)
 
     return data
 end
@@ -824,6 +989,8 @@ local function syncNumericControls()
         autoSkillsInterval = config.autoSkillsInterval,
         autoBurstInterval = config.autoBurstInterval,
         autoUltimateInterval = config.autoUltimateInterval,
+        autoEvasiveInterval = config.autoEvasiveInterval,
+        evasiveSideHoldTime = config.evasiveSideHoldTime,
         orbitRadius = config.orbitRadius,
         orbitSpeed = config.orbitSpeed,
         orbitHeight = config.orbitHeight,
@@ -870,14 +1037,17 @@ local function applyConfigData(data)
         end
     end
 
+    targetList = mapFromList(data.targetList)
+    friendList = mapFromList(data.friendList)
+
     if type(data.targetName) == "string" and data.targetName ~= "" then
         state.targetName = data.targetName
         smartPoint = nil
 
-        if targetDropdown then
-            targetDropdown:SetOptions(getTargetOptions(), state.targetName)
-        end
+        updatePlayerControls()
     end
+
+    updatePlayerControls()
 
     if controls.highlightColor then
         controls.highlightColor:Set(config.highlightColor, true)
@@ -1137,19 +1307,62 @@ controls.targetBind = RageTab:AddKeybind({
 RageTab:AddButton({
     Name = "Refresh Target List",
     Callback = function()
-        targetDropdown:SetOptions(getTargetOptions(), state.targetName)
+        updatePlayerControls()
+    end,
+})
+
+controls.targetList = RageTab:AddMultiDropdown({
+    Name = "Target List",
+    Options = getPlayerOptions(),
+    Default = listFromMap(targetList),
+    Callback = function(values)
+        targetList = mapFromList(values)
+
+        for name in pairs(friendList) do
+            targetList[name] = nil
+        end
+
+        if controls.targetList then
+            controls.targetList:Set(listFromMap(targetList), true)
+        end
+
+        smartPoint = nil
+    end,
+})
+
+controls.friendList = RageTab:AddMultiDropdown({
+    Name = "Friend List",
+    Options = getPlayerOptions(),
+    Default = listFromMap(friendList),
+    Callback = function(values)
+        friendList = mapFromList(values)
+
+        for name in pairs(friendList) do
+            targetList[name] = nil
+        end
+
+        if state.targetName ~= "Nearest" and friendList[state.targetName] then
+            state.targetName = "Nearest"
+        end
+
+        if controls.targetList then
+            controls.targetList:Set(listFromMap(targetList), true)
+        end
+
+        updatePlayerControls()
+        smartPoint = nil
     end,
 })
 
 Players.PlayerAdded:Connect(function()
     deferTask(function()
-        targetDropdown:SetOptions(getTargetOptions(), state.targetName)
+        updatePlayerControls()
     end)
 end)
 
 Players.PlayerRemoving:Connect(function()
     deferTask(function()
-        targetDropdown:SetOptions(getTargetOptions(), state.targetName)
+        updatePlayerControls()
     end)
 end)
 
@@ -1365,6 +1578,15 @@ controls.autoDash = RageTab:AddToggle({
     end,
 })
 
+controls.autoEvasive = RageTab:AddToggle({
+    Name = "Auto Evasive",
+    Description = "Hold D while pressing Q",
+    Default = false,
+    Callback = function(value)
+        setState("autoEvasive", value)
+    end,
+})
+
 RageTab:AddSection("Timings")
 
 controls.autoM1Interval = RageTab:AddSlider({
@@ -1403,6 +1625,18 @@ controls.autoBurstInterval = RageTab:AddSlider({
     Callback = function(value)
         config.autoBurstInterval = value
         config.autoDashInterval = value
+    end,
+})
+
+controls.autoEvasiveInterval = RageTab:AddSlider({
+    Name = "Evasive Delay",
+    Min = 0.03,
+    Max = 0.60,
+    Default = config.autoEvasiveInterval,
+    Increment = 0.01,
+    Suffix = "s",
+    Callback = function(value)
+        config.autoEvasiveInterval = value
     end,
 })
 
@@ -1606,6 +1840,18 @@ controls.mouseHoldTime = SettingsTab:AddSlider({
     Suffix = "s",
     Callback = function(value)
         config.mouseHoldTime = value
+    end,
+})
+
+controls.evasiveSideHoldTime = SettingsTab:AddSlider({
+    Name = "Evasive D Hold",
+    Min = 0.010,
+    Max = 0.140,
+    Default = config.evasiveSideHoldTime,
+    Increment = 0.005,
+    Suffix = "s",
+    Callback = function(value)
+        config.evasiveSideHoldTime = value
     end,
 })
 
