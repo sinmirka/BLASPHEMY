@@ -1,4 +1,4 @@
--- Rage Hub Client
+-- Blasphemy Client
 -- Replace GUI_LIBRARY_URL with your raw GitHub link to roblox_prism_gui_library.lua.
 
 local GUI_LIBRARY_URL = "https://cdn.jsdelivr.net/gh/sinmirka/BLASPHEMY@c95f3b0/roblox_prism_gui_library.lua"
@@ -83,7 +83,7 @@ local function ensureBootGui()
     bootLabel.Size = UDim2.new(1, -28, 1, -20)
     bootLabel.BackgroundTransparency = 1
     bootLabel.Font = Enum.Font.GothamSemibold
-    bootLabel.Text = "BLASPHEMY\nStarting..."
+    bootLabel.Text = "Blasphemy\nStarting..."
     bootLabel.TextColor3 = Color3.fromRGB(238, 241, 248)
     bootLabel.TextSize = 13
     bootLabel.TextWrapped = true
@@ -115,12 +115,12 @@ local function setBootStatus(message, isError)
     ensureBootGui()
 
     if bootLabel then
-        bootLabel.Text = "BLASPHEMY\n" .. tostring(message)
+        bootLabel.Text = "Blasphemy\n" .. tostring(message)
         bootLabel.TextColor3 = isError and Color3.fromRGB(255, 110, 122) or Color3.fromRGB(238, 241, 248)
     end
 
     if isError then
-        warn("[BLASPHEMY] " .. tostring(message))
+        warn("[Blasphemy] " .. tostring(message))
     end
 end
 
@@ -177,8 +177,8 @@ setBootStatus("Creating window...")
 
 local windowOk, Window = pcall(function()
     return Library:CreateWindow({
-        Name = "PrismRageHub",
-        Title = "Prism Rage Hub",
+        Name = "Blasphemy",
+        Title = "Blasphemy",
         Subtitle = "RightShift to hide/show",
         Size = Vector2.new(620, 520),
         ToggleKey = Enum.KeyCode.RightShift,
@@ -189,6 +189,261 @@ if not windowOk then
     setBootStatus("CreateWindow failed: " .. tostring(Window), true)
     return
 end
+
+local watermarkGui = nil
+local watermarkFrame = nil
+local watermarkTitle = nil
+local watermarkStats = nil
+local watermarkAccent = nil
+local watermarkStroke = nil
+local watermarkGradient = nil
+
+local function getActiveTheme()
+    local themeName = "Dark"
+
+    if Window and type(Window.GetTheme) == "function" then
+        local ok, currentTheme = pcall(function()
+            return Window:GetTheme()
+        end)
+
+        if ok and type(currentTheme) == "string" then
+            themeName = currentTheme
+        end
+    end
+
+    if Library and Library.Themes then
+        return Library.Themes[themeName] or Library.Themes.Dark
+    end
+
+    return {
+        BackgroundSoft = Color3.fromRGB(20, 23, 31),
+        Card = Color3.fromRGB(27, 31, 42),
+        CardHover = Color3.fromRGB(33, 38, 51),
+        Stroke = Color3.fromRGB(58, 67, 86),
+        Text = Color3.fromRGB(240, 243, 249),
+        Muted = Color3.fromRGB(143, 153, 171),
+        Accent = Color3.fromRGB(76, 211, 171),
+        AccentBlue = Color3.fromRGB(91, 148, 255),
+    }
+end
+
+local function applyWatermarkTheme()
+    if not watermarkFrame then
+        return
+    end
+
+    local theme = getActiveTheme()
+    watermarkFrame.BackgroundColor3 = theme.Card or Color3.fromRGB(27, 31, 42)
+
+    if watermarkTitle then
+        watermarkTitle.TextColor3 = theme.Text or Color3.fromRGB(240, 243, 249)
+    end
+
+    if watermarkStats then
+        watermarkStats.TextColor3 = theme.Muted or Color3.fromRGB(143, 153, 171)
+    end
+
+    if watermarkAccent then
+        watermarkAccent.BackgroundColor3 = theme.Accent or Color3.fromRGB(76, 211, 171)
+    end
+
+    if watermarkStroke then
+        watermarkStroke.Color = theme.Stroke or Color3.fromRGB(58, 67, 86)
+    end
+
+    if watermarkGradient then
+        watermarkGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, theme.CardHover or Color3.fromRGB(33, 38, 51)),
+            ColorSequenceKeypoint.new(1, theme.Card or Color3.fromRGB(27, 31, 42)),
+        })
+    end
+end
+
+local function parentWatermarkGui(screenGui)
+    for _, parent in ipairs(getGuiParentCandidates()) do
+        pcall(function()
+            local existing = parent:FindFirstChild(screenGui.Name)
+            if existing then
+                existing:Destroy()
+            end
+        end)
+    end
+
+    for _, parent in ipairs(getGuiParentCandidates()) do
+        local ok = pcall(function()
+            screenGui.Parent = parent
+        end)
+
+        if ok and screenGui.Parent == parent then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function readPingMs()
+    if LocalPlayer and type(LocalPlayer.GetNetworkPing) == "function" then
+        local ok, pingSeconds = pcall(function()
+            return LocalPlayer:GetNetworkPing()
+        end)
+
+        if ok and type(pingSeconds) == "number" then
+            return math.max(0, math.floor((pingSeconds * 1000) + 0.5))
+        end
+    end
+
+    local okStats, stats = pcall(function()
+        return game:GetService("Stats")
+    end)
+
+    if okStats and stats then
+        local okItem, pingItem = pcall(function()
+            return stats.Network.ServerStatsItem["Data Ping"]
+        end)
+
+        if okItem and pingItem then
+            local okValue, value = pcall(function()
+                return pingItem:GetValue()
+            end)
+
+            if okValue and type(value) == "number" then
+                return math.max(0, math.floor(value + 0.5))
+            end
+
+            local okText, text = pcall(function()
+                return pingItem:GetValueString()
+            end)
+
+            if okText then
+                local numberText = tostring(text):match("[%d%.]+")
+                local numericValue = numberText and tonumber(numberText)
+
+                if numericValue then
+                    return math.max(0, math.floor(numericValue + 0.5))
+                end
+            end
+        end
+    end
+
+    return nil
+end
+
+local function createBlasphemyWatermark()
+    watermarkGui = Instance.new("ScreenGui")
+    watermarkGui.Name = "BlasphemyWatermark"
+    watermarkGui.ResetOnSpawn = false
+    watermarkGui.IgnoreGuiInset = true
+    watermarkGui.DisplayOrder = 1000001
+    watermarkGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+    watermarkFrame = Instance.new("Frame")
+    watermarkFrame.Name = "Root"
+    watermarkFrame.AnchorPoint = Vector2.new(0.5, 0)
+    watermarkFrame.Position = UDim2.new(0.5, 0, 0, 10)
+    watermarkFrame.Size = UDim2.fromOffset(312, 34)
+    watermarkFrame.BorderSizePixel = 0
+    watermarkFrame.Parent = watermarkGui
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = watermarkFrame
+
+    watermarkStroke = Instance.new("UIStroke")
+    watermarkStroke.Transparency = 0.18
+    watermarkStroke.Thickness = 1
+    watermarkStroke.Parent = watermarkFrame
+
+    watermarkGradient = Instance.new("UIGradient")
+    watermarkGradient.Rotation = 12
+    watermarkGradient.Parent = watermarkFrame
+
+    watermarkAccent = Instance.new("Frame")
+    watermarkAccent.Name = "Accent"
+    watermarkAccent.BorderSizePixel = 0
+    watermarkAccent.Position = UDim2.fromOffset(10, 8)
+    watermarkAccent.Size = UDim2.fromOffset(3, 18)
+    watermarkAccent.Parent = watermarkFrame
+
+    local accentCorner = Instance.new("UICorner")
+    accentCorner.CornerRadius = UDim.new(1, 0)
+    accentCorner.Parent = watermarkAccent
+
+    watermarkTitle = Instance.new("TextLabel")
+    watermarkTitle.Name = "Title"
+    watermarkTitle.BackgroundTransparency = 1
+    watermarkTitle.Position = UDim2.fromOffset(19, 0)
+    watermarkTitle.Size = UDim2.new(0, 120, 1, 0)
+    watermarkTitle.Font = Enum.Font.GothamSemibold
+    watermarkTitle.Text = "Blasphemy Script"
+    watermarkTitle.TextSize = 12
+    watermarkTitle.TextXAlignment = Enum.TextXAlignment.Left
+    watermarkTitle.TextTruncate = Enum.TextTruncate.AtEnd
+    watermarkTitle.Parent = watermarkFrame
+
+    watermarkStats = Instance.new("TextLabel")
+    watermarkStats.Name = "Stats"
+    watermarkStats.BackgroundTransparency = 1
+    watermarkStats.Position = UDim2.fromOffset(144, 0)
+    watermarkStats.Size = UDim2.new(1, -156, 1, 0)
+    watermarkStats.Font = Enum.Font.GothamMedium
+    watermarkStats.Text = "PING -- ms  |  FPS --"
+    watermarkStats.TextSize = 11
+    watermarkStats.TextXAlignment = Enum.TextXAlignment.Right
+    watermarkStats.TextTruncate = Enum.TextTruncate.AtEnd
+    watermarkStats.Parent = watermarkFrame
+
+    if not parentWatermarkGui(watermarkGui) then
+        watermarkGui:Destroy()
+        watermarkGui = nil
+        watermarkFrame = nil
+        watermarkTitle = nil
+        watermarkStats = nil
+        watermarkAccent = nil
+        watermarkStroke = nil
+        watermarkGradient = nil
+        return
+    end
+
+    applyWatermarkTheme()
+
+    local frames = 0
+    local fps = 0
+    local lastFpsAt = os.clock()
+    local lastTextAt = 0
+    local nextPingAt = 0
+    local pingText = "--"
+
+    RunService.RenderStepped:Connect(function()
+        if not watermarkStats or not watermarkStats.Parent then
+            return
+        end
+
+        frames = frames + 1
+
+        local now = os.clock()
+        local elapsed = now - lastFpsAt
+
+        if elapsed >= 0.5 then
+            fps = math.floor((frames / elapsed) + 0.5)
+            frames = 0
+            lastFpsAt = now
+        end
+
+        if now >= nextPingAt then
+            local ping = readPingMs()
+            pingText = ping and tostring(ping) or "--"
+            nextPingAt = now + 1
+        end
+
+        if now - lastTextAt >= 0.20 then
+            watermarkStats.Text = "PING " .. pingText .. " ms  |  FPS " .. tostring(fps)
+            lastTextAt = now
+        end
+    end)
+end
+
+createBlasphemyWatermark()
 
 local tabsOk, RageTab, SettingsTab = pcall(function()
     local rage = Window:AddTab("Rage")
@@ -228,7 +483,7 @@ local function warnVirtualInput()
     end
 
     warnedVirtualInput = true
-    warn("[PrismRageHub] VirtualInputManager is unavailable or blocked. Key and mouse simulation may not work here.")
+    warn("[Blasphemy] VirtualInputManager is unavailable or blocked. Key and mouse simulation may not work here.")
 end
 
 local function tryVirtualInput(callback)
@@ -1201,7 +1456,7 @@ function updateTargetHighlight()
 
     if not targetHighlight then
         targetHighlight = Instance.new("Highlight")
-        targetHighlight.Name = "PrismTargetHighlight"
+        targetHighlight.Name = "BlasphemyTargetHighlight"
         targetHighlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
         targetHighlight.FillTransparency = 0.65
         targetHighlight.OutlineTransparency = 0.05
@@ -1775,6 +2030,7 @@ controls.theme = SettingsTab:AddDropdown({
         local themeName = value or "Dark"
         if Window:SetTheme(themeName) then
             settings.theme = themeName
+            applyWatermarkTheme()
         end
     end,
 })
@@ -1808,7 +2064,7 @@ SettingsTab:AddButton({
 SettingsTab:AddButton({
     Name = "Show Loader Status",
     Callback = function()
-        notifyStatus("BLASPHEMY is running.")
+        notifyStatus("Blasphemy is running.")
     end,
 })
 
