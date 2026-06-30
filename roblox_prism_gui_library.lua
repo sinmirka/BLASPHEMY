@@ -437,13 +437,12 @@ function Library:CreateWindow(config)
 
     local sidebarDivider = create("Frame", {
         Name = "SidebarDivider",
-        AnchorPoint = Vector2.new(1, 0),
-        Position = UDim2.new(1, 0, 0, 0),
+        Position = UDim2.fromOffset(sidebarWidth, 0),
         Size = UDim2.new(0, 1, 1, 0),
         BackgroundColor3 = Theme.Stroke,
         BackgroundTransparency = 0.22,
         BorderSizePixel = 0,
-        Parent = sidebar,
+        Parent = body,
     })
 
     create("UIPadding", {
@@ -593,7 +592,9 @@ function Library:CreateWindow(config)
         end
 
         if self.SelectedTab then
-            self:SelectTab(self.SelectedTab)
+            local selectedTab = self.SelectedTab
+            self.SelectedTab = nil
+            self:SelectTab(selectedTab)
         end
     end
 
