@@ -9,7 +9,7 @@ local LocalPlayer = Players.LocalPlayer
 
 local Library = {}
 Library.__index = Library
-Library.Version = "1.3.1"
+Library.Version = "1.4.0"
 
 local unpackValues = table.unpack or unpack
 
@@ -22,100 +22,100 @@ local function spawnTask(callback)
 end
 
 local Theme = {
-    Background = Color3.fromRGB(15, 17, 23),
-    BackgroundSoft = Color3.fromRGB(20, 23, 31),
-    Sidebar = Color3.fromRGB(18, 21, 29),
-    Header = Color3.fromRGB(24, 28, 38),
-    Card = Color3.fromRGB(27, 31, 42),
-    CardHover = Color3.fromRGB(33, 38, 51),
-    Stroke = Color3.fromRGB(58, 67, 86),
-    Text = Color3.fromRGB(240, 243, 249),
-    Muted = Color3.fromRGB(143, 153, 171),
-    Accent = Color3.fromRGB(76, 211, 171),
-    AccentBlue = Color3.fromRGB(91, 148, 255),
-    Danger = Color3.fromRGB(239, 91, 106),
-    SwitchOff = Color3.fromRGB(56, 63, 79),
-    Knob = Color3.fromRGB(248, 250, 252),
+    Background = Color3.fromRGB(15, 15, 15),
+    BackgroundSoft = Color3.fromRGB(22, 22, 22),
+    Sidebar = Color3.fromRGB(19, 19, 19),
+    Header = Color3.fromRGB(24, 24, 24),
+    Card = Color3.fromRGB(28, 28, 28),
+    CardHover = Color3.fromRGB(36, 36, 36),
+    Stroke = Color3.fromRGB(48, 48, 48),
+    Text = Color3.fromRGB(244, 244, 244),
+    Muted = Color3.fromRGB(156, 156, 156),
+    Accent = Color3.fromRGB(0, 212, 170),
+    AccentBlue = Color3.fromRGB(92, 180, 156),
+    Danger = Color3.fromRGB(232, 88, 104),
+    SwitchOff = Color3.fromRGB(54, 54, 54),
+    Knob = Color3.fromRGB(242, 242, 242),
 }
 
 Library.ThemeOrder = { "Dark", "Emerald", "Amethyst", "Crimson", "Light" }
 Library.Themes = {
     Dark = {
-        Background = Color3.fromRGB(15, 17, 23),
-        BackgroundSoft = Color3.fromRGB(20, 23, 31),
-        Sidebar = Color3.fromRGB(18, 21, 29),
-        Header = Color3.fromRGB(24, 28, 38),
-        Card = Color3.fromRGB(27, 31, 42),
-        CardHover = Color3.fromRGB(33, 38, 51),
-        Stroke = Color3.fromRGB(58, 67, 86),
-        Text = Color3.fromRGB(240, 243, 249),
-        Muted = Color3.fromRGB(143, 153, 171),
-        Accent = Color3.fromRGB(76, 211, 171),
-        AccentBlue = Color3.fromRGB(91, 148, 255),
-        Danger = Color3.fromRGB(239, 91, 106),
-        SwitchOff = Color3.fromRGB(56, 63, 79),
-        Knob = Color3.fromRGB(248, 250, 252),
+        Background = Color3.fromRGB(15, 15, 15),
+        BackgroundSoft = Color3.fromRGB(22, 22, 22),
+        Sidebar = Color3.fromRGB(19, 19, 19),
+        Header = Color3.fromRGB(24, 24, 24),
+        Card = Color3.fromRGB(28, 28, 28),
+        CardHover = Color3.fromRGB(36, 36, 36),
+        Stroke = Color3.fromRGB(48, 48, 48),
+        Text = Color3.fromRGB(244, 244, 244),
+        Muted = Color3.fromRGB(156, 156, 156),
+        Accent = Color3.fromRGB(0, 212, 170),
+        AccentBlue = Color3.fromRGB(92, 180, 156),
+        Danger = Color3.fromRGB(232, 88, 104),
+        SwitchOff = Color3.fromRGB(54, 54, 54),
+        Knob = Color3.fromRGB(242, 242, 242),
     },
     Emerald = {
-        Background = Color3.fromRGB(12, 20, 18),
-        BackgroundSoft = Color3.fromRGB(17, 29, 25),
-        Sidebar = Color3.fromRGB(14, 25, 22),
-        Header = Color3.fromRGB(20, 37, 32),
-        Card = Color3.fromRGB(22, 42, 36),
-        CardHover = Color3.fromRGB(29, 56, 48),
-        Stroke = Color3.fromRGB(60, 94, 81),
-        Text = Color3.fromRGB(237, 247, 243),
-        Muted = Color3.fromRGB(139, 171, 159),
-        Accent = Color3.fromRGB(66, 220, 151),
-        AccentBlue = Color3.fromRGB(98, 179, 255),
+        Background = Color3.fromRGB(13, 18, 16),
+        BackgroundSoft = Color3.fromRGB(18, 25, 22),
+        Sidebar = Color3.fromRGB(16, 22, 20),
+        Header = Color3.fromRGB(20, 29, 25),
+        Card = Color3.fromRGB(23, 34, 29),
+        CardHover = Color3.fromRGB(30, 44, 38),
+        Stroke = Color3.fromRGB(54, 76, 67),
+        Text = Color3.fromRGB(238, 246, 242),
+        Muted = Color3.fromRGB(146, 170, 160),
+        Accent = Color3.fromRGB(58, 204, 142),
+        AccentBlue = Color3.fromRGB(72, 175, 143),
         Danger = Color3.fromRGB(239, 91, 106),
-        SwitchOff = Color3.fromRGB(48, 73, 66),
+        SwitchOff = Color3.fromRGB(46, 63, 57),
         Knob = Color3.fromRGB(248, 250, 252),
     },
     Amethyst = {
-        Background = Color3.fromRGB(17, 15, 24),
-        BackgroundSoft = Color3.fromRGB(24, 21, 35),
-        Sidebar = Color3.fromRGB(20, 18, 31),
-        Header = Color3.fromRGB(31, 26, 45),
-        Card = Color3.fromRGB(35, 30, 51),
-        CardHover = Color3.fromRGB(44, 37, 65),
-        Stroke = Color3.fromRGB(78, 67, 105),
-        Text = Color3.fromRGB(244, 240, 249),
-        Muted = Color3.fromRGB(163, 150, 181),
-        Accent = Color3.fromRGB(174, 112, 255),
-        AccentBlue = Color3.fromRGB(96, 161, 255),
+        Background = Color3.fromRGB(18, 16, 22),
+        BackgroundSoft = Color3.fromRGB(25, 22, 31),
+        Sidebar = Color3.fromRGB(21, 19, 27),
+        Header = Color3.fromRGB(29, 25, 36),
+        Card = Color3.fromRGB(33, 29, 41),
+        CardHover = Color3.fromRGB(42, 36, 53),
+        Stroke = Color3.fromRGB(72, 63, 88),
+        Text = Color3.fromRGB(243, 240, 247),
+        Muted = Color3.fromRGB(164, 154, 178),
+        Accent = Color3.fromRGB(163, 126, 220),
+        AccentBlue = Color3.fromRGB(145, 128, 207),
         Danger = Color3.fromRGB(239, 91, 127),
-        SwitchOff = Color3.fromRGB(63, 55, 80),
+        SwitchOff = Color3.fromRGB(58, 51, 70),
         Knob = Color3.fromRGB(248, 250, 252),
     },
     Crimson = {
-        Background = Color3.fromRGB(22, 14, 16),
-        BackgroundSoft = Color3.fromRGB(31, 18, 21),
-        Sidebar = Color3.fromRGB(27, 16, 19),
-        Header = Color3.fromRGB(41, 22, 27),
-        Card = Color3.fromRGB(48, 27, 32),
-        CardHover = Color3.fromRGB(63, 35, 42),
-        Stroke = Color3.fromRGB(98, 59, 67),
+        Background = Color3.fromRGB(21, 15, 16),
+        BackgroundSoft = Color3.fromRGB(29, 20, 22),
+        Sidebar = Color3.fromRGB(25, 18, 20),
+        Header = Color3.fromRGB(36, 23, 27),
+        Card = Color3.fromRGB(43, 28, 32),
+        CardHover = Color3.fromRGB(56, 36, 42),
+        Stroke = Color3.fromRGB(91, 59, 66),
         Text = Color3.fromRGB(250, 241, 243),
         Muted = Color3.fromRGB(185, 145, 153),
-        Accent = Color3.fromRGB(255, 91, 112),
-        AccentBlue = Color3.fromRGB(255, 156, 91),
+        Accent = Color3.fromRGB(231, 94, 111),
+        AccentBlue = Color3.fromRGB(220, 128, 96),
         Danger = Color3.fromRGB(255, 84, 84),
-        SwitchOff = Color3.fromRGB(76, 49, 55),
+        SwitchOff = Color3.fromRGB(72, 47, 53),
         Knob = Color3.fromRGB(248, 250, 252),
     },
     Light = {
-        Background = Color3.fromRGB(235, 238, 244),
-        BackgroundSoft = Color3.fromRGB(244, 246, 250),
-        Sidebar = Color3.fromRGB(224, 228, 236),
-        Header = Color3.fromRGB(250, 251, 253),
+        Background = Color3.fromRGB(241, 242, 244),
+        BackgroundSoft = Color3.fromRGB(249, 249, 250),
+        Sidebar = Color3.fromRGB(232, 234, 238),
+        Header = Color3.fromRGB(252, 252, 253),
         Card = Color3.fromRGB(255, 255, 255),
-        CardHover = Color3.fromRGB(238, 244, 250),
-        Stroke = Color3.fromRGB(194, 204, 218),
+        CardHover = Color3.fromRGB(240, 242, 246),
+        Stroke = Color3.fromRGB(198, 204, 214),
         Text = Color3.fromRGB(24, 30, 42),
         Muted = Color3.fromRGB(93, 105, 124),
         Accent = Color3.fromRGB(30, 154, 118),
-        AccentBlue = Color3.fromRGB(65, 117, 230),
+        AccentBlue = Color3.fromRGB(56, 142, 118),
         Danger = Color3.fromRGB(214, 64, 80),
         SwitchOff = Color3.fromRGB(188, 197, 210),
         Knob = Color3.fromRGB(255, 255, 255),
@@ -179,6 +179,16 @@ local function addStroke(parent, transparency)
         Thickness = 1,
         Parent = parent,
     })
+end
+
+local function mixColor(a, b, alpha)
+    alpha = math.clamp(alpha or 0.5, 0, 1)
+
+    return Color3.new(
+        a.R + (b.R - a.R) * alpha,
+        a.G + (b.G - a.G) * alpha,
+        a.B + (b.B - a.B) * alpha
+    )
 end
 
 local function getGuiParents()
@@ -278,8 +288,9 @@ function Library:CreateWindow(config)
     local title = config.Title or "Prism"
     local subtitle = config.Subtitle or "Interface"
     local guiName = config.Name or "PrismGui"
-    local size = config.Size or Vector2.new(590, 470)
-    local collapsedHeight = 40
+    local size = config.Size or Vector2.new(600, 470)
+    local collapsedHeight = 44
+    local sidebarWidth = config.SidebarWidth or 148
     local toggleKey = config.ToggleKey or Enum.KeyCode.RightShift
     local startPosition = config.Position
 
@@ -309,16 +320,7 @@ function Library:CreateWindow(config)
         Parent = screenGui,
     })
     addCorner(main, 8)
-    addStroke(main, 0.22)
-
-    local mainGradient = create("UIGradient", {
-        Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Theme.BackgroundSoft),
-            ColorSequenceKeypoint.new(1, Theme.Background),
-        }),
-        Rotation = 90,
-        Parent = main,
-    })
+    addStroke(main, 0.18)
 
     local titleBar = create("Frame", {
         Name = "TitleBar",
@@ -338,26 +340,19 @@ function Library:CreateWindow(config)
         Parent = titleBar,
     })
 
-    local accentLine = create("Frame", {
-        Name = "AccentLine",
+    local headerDivider = create("Frame", {
+        Name = "HeaderDivider",
         Position = UDim2.new(0, 0, 1, -2),
-        Size = UDim2.new(1, 0, 0, 2),
-        BackgroundColor3 = Theme.Accent,
+        Size = UDim2.new(1, 0, 0, 1),
+        BackgroundColor3 = Theme.Stroke,
+        BackgroundTransparency = 0.18,
         BorderSizePixel = 0,
         Parent = titleBar,
     })
 
-    local accentGradient = create("UIGradient", {
-        Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Theme.Accent),
-            ColorSequenceKeypoint.new(1, Theme.AccentBlue),
-        }),
-        Parent = accentLine,
-    })
-
     local titleLabel = create("TextLabel", {
         Name = "Title",
-        Position = UDim2.fromOffset(14, 6),
+        Position = UDim2.fromOffset(14, 7),
         Size = UDim2.new(1, -130, 0, 18),
         BackgroundTransparency = 1,
         Font = Enum.Font.GothamSemibold,
@@ -371,7 +366,7 @@ function Library:CreateWindow(config)
 
     local subtitleLabel = create("TextLabel", {
         Name = "Subtitle",
-        Position = UDim2.fromOffset(14, 22),
+        Position = UDim2.fromOffset(14, 25),
         Size = UDim2.new(1, -130, 0, 14),
         BackgroundTransparency = 1,
         Font = Enum.Font.Gotham,
@@ -388,19 +383,19 @@ function Library:CreateWindow(config)
         AnchorPoint = Vector2.new(1, 0.5),
         Position = UDim2.new(1, -48, 0.5, 0),
         Size = UDim2.fromOffset(28, 24),
-        BackgroundColor3 = Theme.Card,
+        BackgroundColor3 = Theme.Header,
         AutoButtonColor = false,
         Font = Enum.Font.GothamBold,
         Text = "-",
-        TextColor3 = Theme.Text,
+        TextColor3 = Theme.Muted,
         TextSize = 16,
         Parent = titleBar,
     })
     addCorner(minimizeButton, 6)
     setButtonHover(minimizeButton, function()
-        return Theme.Card
+        return Theme.Header
     end, function()
-        return Theme.CardHover
+        return Theme.Card
     end)
 
     local closeButton = create("TextButton", {
@@ -408,11 +403,7 @@ function Library:CreateWindow(config)
         AnchorPoint = Vector2.new(1, 0.5),
         Position = UDim2.new(1, -14, 0.5, 0),
         Size = UDim2.fromOffset(28, 24),
-        BackgroundColor3 = Color3.fromRGB(
-            math.floor((Theme.Card.R * 255 + Theme.Danger.R * 255) / 2),
-            math.floor((Theme.Card.G * 255 + Theme.Danger.G * 255) / 2),
-            math.floor((Theme.Card.B * 255 + Theme.Danger.B * 255) / 2)
-        ),
+        BackgroundColor3 = Theme.Header,
         AutoButtonColor = false,
         Font = Enum.Font.GothamBold,
         Text = "X",
@@ -422,13 +413,9 @@ function Library:CreateWindow(config)
     })
     addCorner(closeButton, 6)
     setButtonHover(closeButton, function()
-        return Color3.fromRGB(
-            math.floor((Theme.Card.R * 255 + Theme.Danger.R * 255) / 2),
-            math.floor((Theme.Card.G * 255 + Theme.Danger.G * 255) / 2),
-            math.floor((Theme.Card.B * 255 + Theme.Danger.B * 255) / 2)
-        )
+        return Theme.Header
     end, function()
-        return Theme.Danger
+        return mixColor(Theme.Card, Theme.Danger, 0.22)
     end)
 
     local body = create("Frame", {
@@ -442,10 +429,21 @@ function Library:CreateWindow(config)
     local sidebar = create("Frame", {
         Name = "Sidebar",
         Position = UDim2.fromOffset(0, 0),
-        Size = UDim2.new(0, 136, 1, 0),
+        Size = UDim2.new(0, sidebarWidth, 1, 0),
         BackgroundColor3 = Theme.Sidebar,
         BorderSizePixel = 0,
         Parent = body,
+    })
+
+    local sidebarDivider = create("Frame", {
+        Name = "SidebarDivider",
+        AnchorPoint = Vector2.new(1, 0),
+        Position = UDim2.new(1, 0, 0, 0),
+        Size = UDim2.new(0, 1, 1, 0),
+        BackgroundColor3 = Theme.Stroke,
+        BackgroundTransparency = 0.22,
+        BorderSizePixel = 0,
+        Parent = sidebar,
     })
 
     create("UIPadding", {
@@ -464,8 +462,8 @@ function Library:CreateWindow(config)
 
     local content = create("Frame", {
         Name = "Content",
-        Position = UDim2.fromOffset(136, 0),
-        Size = UDim2.new(1, -136, 1, 0),
+        Position = UDim2.fromOffset(sidebarWidth, 0),
+        Size = UDim2.new(1, -sidebarWidth, 1, 0),
         BackgroundTransparency = 1,
         Parent = body,
     })
@@ -528,15 +526,8 @@ function Library:CreateWindow(config)
         main.BackgroundColor3 = Theme.Background
         titleBar.BackgroundColor3 = Theme.Header
         sidebar.BackgroundColor3 = Theme.Sidebar
-        accentLine.BackgroundColor3 = Theme.Accent
-        mainGradient.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Theme.BackgroundSoft),
-            ColorSequenceKeypoint.new(1, Theme.Background),
-        })
-        accentGradient.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Theme.Accent),
-            ColorSequenceKeypoint.new(1, Theme.AccentBlue),
-        })
+        headerDivider.BackgroundColor3 = Theme.Stroke
+        sidebarDivider.BackgroundColor3 = Theme.Stroke
 
         for _, descendant in ipairs(main:GetDescendants()) do
             if descendant:IsA("UIStroke") then
@@ -544,9 +535,14 @@ function Library:CreateWindow(config)
             elseif descendant:IsA("TextLabel") or descendant:IsA("TextButton") or descendant:IsA("TextBox") then
                 if descendant.Name == "Close" then
                     descendant.TextColor3 = Theme.Danger
-                elseif descendant.Name == "Description" or descendant.Name == "Subtitle" or descendant.Name == "Selected" then
+                elseif descendant.Name == "Description"
+                    or descendant.Name == "Subtitle"
+                    or descendant.Name == "Selected"
+                    or descendant.Name == "Text"
+                    or descendant.Name == "ButtonArrow"
+                    or descendant.Name == "Minimize" then
                     descendant.TextColor3 = Theme.Muted
-                elseif descendant.Name == "Value" or descendant.Name == "Arrow" or descendant.Name == "SectionLabel" or descendant.Name == "Key" or descendant.Name == "Check" then
+                elseif descendant.Name == "Value" or descendant.Name == "Arrow" or descendant.Name == "Key" or descendant.Name == "Check" then
                     descendant.TextColor3 = Theme.Accent
                 else
                     descendant.TextColor3 = Theme.Text
@@ -554,11 +550,13 @@ function Library:CreateWindow(config)
             end
 
             if descendant:IsA("Frame") or descendant:IsA("TextButton") or descendant:IsA("TextBox") or descendant:IsA("ScrollingFrame") then
-                if descendant.Name == "TitleBar" or descendant.Name == "HeaderCornerCover" then
+                if descendant.Name == "TitleBar" or descendant.Name == "HeaderCornerCover" or descendant.Name == "Minimize" then
                     descendant.BackgroundColor3 = Theme.Header
                 elseif descendant.Name == "Sidebar" then
                     descendant.BackgroundColor3 = Theme.Sidebar
-                elseif descendant.Name == "AccentLine" or descendant.Name == "Accent" or descendant.Name == "Fill" or descendant.Name == "SectionLine" then
+                elseif descendant.Name == "HeaderDivider" or descendant.Name == "SidebarDivider" or descendant.Name == "SectionLine" then
+                    descendant.BackgroundColor3 = Theme.Stroke
+                elseif descendant.Name == "Accent" or descendant.Name == "Fill" then
                     descendant.BackgroundColor3 = Theme.Accent
                 elseif descendant.Name == "Switch" then
                     local knob = descendant:FindFirstChild("Knob")
@@ -570,22 +568,18 @@ function Library:CreateWindow(config)
                 elseif descendant.Name == "Knob" then
                     descendant.BackgroundColor3 = Theme.Knob
                 elseif descendant.Name == "Close" then
-                    descendant.BackgroundColor3 = Color3.fromRGB(
-                        math.floor((Theme.Card.R * 255 + Theme.Danger.R * 255) / 2),
-                        math.floor((Theme.Card.G * 255 + Theme.Danger.G * 255) / 2),
-                        math.floor((Theme.Card.B * 255 + Theme.Danger.B * 255) / 2)
-                    )
-                elseif descendant.Name == "Minimize"
-                    or descendant.Name == "Toggle"
+                    descendant.BackgroundColor3 = Theme.Header
+                elseif descendant.Name == "Toggle"
                     or descendant.Name == "Slider"
                     or descendant.Name == "Dropdown"
                     or descendant.Name == "MultiDropdown"
                     or descendant.Name == "Button"
-                    or descendant.Name == "Label"
                     or descendant.Name == "Keybind"
                     or descendant.Name == "ColorPicker"
                     or descendant.Name == "Input" then
                     descendant.BackgroundColor3 = Theme.Card
+                elseif descendant.Name == "InfoLabel" then
+                    descendant.BackgroundColor3 = Theme.BackgroundSoft
                 elseif descendant.Name == "Key" then
                     descendant.BackgroundColor3 = Theme.BackgroundSoft
                 elseif descendant.Name == "Option" then
@@ -658,7 +652,7 @@ function Library:CreateWindow(config)
             local selected = item == tab
             item.Page.Visible = selected
             tween(item.Button, 0.15, {
-                BackgroundColor3 = selected and Theme.CardHover or Theme.BackgroundSoft,
+                BackgroundColor3 = selected and Theme.Card or Theme.Sidebar,
             })
             item.Button.TextColor3 = selected and Theme.Text or Theme.Muted
             item.Accent.Visible = selected
@@ -676,8 +670,8 @@ function Library:CreateWindow(config)
         local button = create("TextButton", {
             Name = tabName .. "Tab",
             LayoutOrder = order,
-            Size = UDim2.new(1, 0, 0, 32),
-            BackgroundColor3 = Theme.BackgroundSoft,
+            Size = UDim2.new(1, 0, 0, 31),
+            BackgroundColor3 = Theme.Sidebar,
             BorderSizePixel = 0,
             AutoButtonColor = false,
             Font = Enum.Font.GothamSemibold,
@@ -690,15 +684,16 @@ function Library:CreateWindow(config)
         addCorner(button, 7)
 
         create("UIPadding", {
-            PaddingLeft = UDim.new(0, 18),
+            PaddingLeft = UDim.new(0, 16),
+            PaddingRight = UDim.new(0, 8),
             Parent = button,
         })
 
         local accent = create("Frame", {
             Name = "Accent",
             AnchorPoint = Vector2.new(0, 0.5),
-            Position = UDim2.new(0, 2, 0.5, 0),
-            Size = UDim2.fromOffset(3, 16),
+            Position = UDim2.new(0, 4, 0.5, 0),
+            Size = UDim2.fromOffset(2, 15),
             BackgroundColor3 = Theme.Accent,
             BorderSizePixel = 0,
             Visible = false,
@@ -752,13 +747,13 @@ function Library:CreateWindow(config)
 
         button.MouseEnter:Connect(function()
             if self.SelectedTab ~= tab then
-                tween(button, 0.12, { BackgroundColor3 = Theme.Card })
+                tween(button, 0.12, { BackgroundColor3 = Theme.BackgroundSoft })
             end
         end)
 
         button.MouseLeave:Connect(function()
             if self.SelectedTab ~= tab then
-                tween(button, 0.12, { BackgroundColor3 = Theme.BackgroundSoft })
+                tween(button, 0.12, { BackgroundColor3 = Theme.Sidebar })
             end
         end)
 
@@ -838,20 +833,20 @@ function Tab:AddSection(name)
     local row = create("Frame", {
         Name = "Section",
         LayoutOrder = self:_nextOrder(),
-        Size = UDim2.new(1, 0, 0, 22),
+        Size = UDim2.new(1, 0, 0, 24),
         BackgroundTransparency = 1,
         Parent = self.Page,
     })
 
     local label = create("TextLabel", {
         Name = "SectionLabel",
-        Position = UDim2.fromOffset(0, 0),
-        Size = UDim2.new(0, 150, 1, 0),
+        Position = UDim2.fromOffset(1, 0),
+        Size = UDim2.new(0, 156, 1, 0),
         BackgroundTransparency = 1,
-        Font = Enum.Font.GothamBold,
-        Text = string.upper(name or "Section"),
-        TextColor3 = Theme.Accent,
-        TextSize = 10,
+        Font = Enum.Font.GothamSemibold,
+        Text = tostring(name or "Section"),
+        TextColor3 = Theme.Text,
+        TextSize = 12,
         TextXAlignment = Enum.TextXAlignment.Left,
         TextTruncate = Enum.TextTruncate.AtEnd,
         Parent = row,
@@ -861,9 +856,9 @@ function Tab:AddSection(name)
         Name = "SectionLine",
         AnchorPoint = Vector2.new(1, 0.5),
         Position = UDim2.new(1, 0, 0.5, 0),
-        Size = UDim2.new(1, -162, 0, 1),
-        BackgroundColor3 = Theme.Accent,
-        BackgroundTransparency = 0.32,
+        Size = UDim2.new(1, -170, 0, 1),
+        BackgroundColor3 = Theme.Stroke,
+        BackgroundTransparency = 0.35,
         BorderSizePixel = 0,
         Parent = row,
     })
@@ -873,15 +868,15 @@ end
 
 function Tab:AddLabel(text)
     local row = create("Frame", {
-        Name = "Label",
+        Name = "InfoLabel",
         LayoutOrder = self:_nextOrder(),
-        Size = UDim2.new(1, 0, 0, 34),
-        BackgroundColor3 = Theme.Card,
+        Size = UDim2.new(1, 0, 0, 32),
+        BackgroundColor3 = Theme.BackgroundSoft,
         BorderSizePixel = 0,
         Parent = self.Page,
     })
     addCorner(row, 6)
-    addStroke(row, 0.58)
+    addStroke(row, 0.64)
 
     create("TextLabel", {
         Name = "Text",
@@ -891,7 +886,7 @@ function Tab:AddLabel(text)
         Font = Enum.Font.Gotham,
         Text = text or "",
         TextColor3 = Theme.Muted,
-        TextSize = 12,
+        TextSize = 11,
         TextWrapped = true,
         TextXAlignment = Enum.TextXAlignment.Left,
         Parent = row,
@@ -914,7 +909,7 @@ function Tab:AddButton(config)
         Parent = self.Page,
     })
     addCorner(row, 6)
-    addStroke(row, 0.58)
+    addStroke(row, 0.54)
     setButtonHover(row, function()
         return Theme.Card
     end, function()
@@ -936,14 +931,14 @@ function Tab:AddButton(config)
     })
 
     create("TextLabel", {
-        Name = "Arrow",
+        Name = "ButtonArrow",
         AnchorPoint = Vector2.new(1, 0.5),
         Position = UDim2.new(1, -12, 0.5, 0),
         Size = UDim2.fromOffset(20, 18),
         BackgroundTransparency = 1,
         Font = Enum.Font.GothamBold,
         Text = ">",
-        TextColor3 = Theme.Accent,
+        TextColor3 = Theme.Muted,
         TextSize = 12,
         TextXAlignment = Enum.TextXAlignment.Right,
         Parent = row,
@@ -971,7 +966,7 @@ function Tab:AddInput(config)
         Parent = self.Page,
     })
     addCorner(row, 6)
-    addStroke(row, 0.58)
+    addStroke(row, 0.54)
 
     create("TextLabel", {
         Name = "Label",
@@ -1005,7 +1000,7 @@ function Tab:AddInput(config)
         Parent = row,
     })
     addCorner(box, 5)
-    addStroke(box, 0.72)
+    addStroke(box, 0.66)
 
     create("UIPadding", {
         PaddingLeft = UDim.new(0, 7),
@@ -1050,7 +1045,7 @@ function Tab:AddToggle(config)
         Parent = self.Page,
     })
     addCorner(row, 6)
-    addStroke(row, 0.58)
+    addStroke(row, 0.54)
     setButtonHover(row, function()
         return Theme.Card
     end, function()
@@ -1089,16 +1084,16 @@ function Tab:AddToggle(config)
         Name = "Switch",
         AnchorPoint = Vector2.new(1, 0.5),
         Position = UDim2.new(1, -10, 0.5, 0),
-        Size = UDim2.fromOffset(44, 22),
+        Size = UDim2.fromOffset(40, 20),
         BackgroundColor3 = Theme.SwitchOff,
         BorderSizePixel = 0,
         Parent = row,
     })
-    addCorner(switch, 11)
+    addCorner(switch, 10)
 
     local knob = create("Frame", {
         Name = "Knob",
-        Position = UDim2.fromOffset(3, 3),
+        Position = UDim2.fromOffset(2, 2),
         Size = UDim2.fromOffset(16, 16),
         BackgroundColor3 = Theme.Knob,
         BorderSizePixel = 0,
@@ -1111,7 +1106,7 @@ function Tab:AddToggle(config)
             BackgroundColor3 = value and Theme.Accent or Theme.SwitchOff,
         })
         tween(knob, 0.16, {
-            Position = value and UDim2.fromOffset(25, 3) or UDim2.fromOffset(3, 3),
+            Position = value and UDim2.fromOffset(22, 2) or UDim2.fromOffset(2, 2),
         })
     end
 
@@ -1158,7 +1153,7 @@ function Tab:AddSlider(config)
         Parent = self.Page,
     })
     addCorner(row, 6)
-    addStroke(row, 0.58)
+    addStroke(row, 0.54)
 
     local label = create("TextLabel", {
         Name = "Label",
@@ -1192,14 +1187,14 @@ function Tab:AddSlider(config)
     local track = create("TextButton", {
         Name = "Track",
         Position = UDim2.fromOffset(10, 35),
-        Size = UDim2.new(1, -20, 0, 6),
+        Size = UDim2.new(1, -20, 0, 5),
         BackgroundColor3 = Theme.SwitchOff,
         BorderSizePixel = 0,
         AutoButtonColor = false,
         Text = "",
         Parent = row,
     })
-    addCorner(track, 3)
+    addCorner(track, 2)
 
     local fill = create("Frame", {
         Name = "Fill",
@@ -1214,12 +1209,12 @@ function Tab:AddSlider(config)
         Name = "Knob",
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.fromScale(0, 0.5),
-        Size = UDim2.fromOffset(12, 12),
+        Size = UDim2.fromOffset(11, 11),
         BackgroundColor3 = Theme.Knob,
         BorderSizePixel = 0,
         Parent = track,
     })
-    addCorner(knob, 6)
+    addCorner(knob, 5)
 
     local function snap(number)
         local snapped = math.floor(((number - minValue) / increment) + 0.5) * increment + minValue
@@ -1315,7 +1310,7 @@ function Tab:AddDropdown(config)
         Parent = self.Page,
     })
     addCorner(row, 6)
-    addStroke(row, 0.58)
+    addStroke(row, 0.54)
 
     create("TextLabel", {
         Name = "Label",
@@ -1373,6 +1368,7 @@ function Tab:AddDropdown(config)
         Parent = row,
     })
     addCorner(optionFrame, 6)
+    addStroke(optionFrame, 0.68)
 
     local optionLayout = create("UIListLayout", {
         FillDirection = Enum.FillDirection.Vertical,
@@ -1534,7 +1530,7 @@ function Tab:AddMultiDropdown(config)
         Parent = self.Page,
     })
     addCorner(row, 6)
-    addStroke(row, 0.58)
+    addStroke(row, 0.54)
 
     create("TextLabel", {
         Name = "Label",
@@ -1592,6 +1588,7 @@ function Tab:AddMultiDropdown(config)
         Parent = row,
     })
     addCorner(optionFrame, 6)
+    addStroke(optionFrame, 0.68)
 
     local optionLayout = create("UIListLayout", {
         FillDirection = Enum.FillDirection.Vertical,
@@ -1764,7 +1761,7 @@ function Tab:AddKeybind(config)
         Parent = self.Page,
     })
     addCorner(row, 6)
-    addStroke(row, 0.58)
+    addStroke(row, 0.54)
     setButtonHover(row, function()
         return Theme.Card
     end, function()
@@ -1800,7 +1797,7 @@ function Tab:AddKeybind(config)
         Parent = row,
     })
     addCorner(keyBox, 6)
-    addStroke(keyBox, 0.66)
+    addStroke(keyBox, 0.62)
 
     local function keyName(keyCode)
         if not keyCode or keyCode == Enum.KeyCode.Unknown then
@@ -1863,13 +1860,13 @@ function Tab:AddColorPicker(config)
 
     local palette = config.Palette or {
         Color3.fromRGB(255, 38, 38),
-        Color3.fromRGB(255, 145, 56),
-        Color3.fromRGB(255, 220, 82),
-        Color3.fromRGB(81, 211, 138),
-        Color3.fromRGB(76, 211, 171),
-        Color3.fromRGB(91, 148, 255),
-        Color3.fromRGB(168, 111, 255),
-        Color3.fromRGB(248, 250, 252),
+        Color3.fromRGB(231, 136, 76),
+        Color3.fromRGB(218, 184, 92),
+        Color3.fromRGB(95, 190, 129),
+        Color3.fromRGB(0, 212, 170),
+        Color3.fromRGB(112, 158, 194),
+        Color3.fromRGB(163, 126, 220),
+        Color3.fromRGB(242, 242, 242),
     }
 
     local value = config.Default or palette[1]
@@ -1886,7 +1883,7 @@ function Tab:AddColorPicker(config)
         Parent = self.Page,
     })
     addCorner(row, 6)
-    addStroke(row, 0.58)
+    addStroke(row, 0.54)
 
     create("TextLabel", {
         Name = "Label",
@@ -1914,7 +1911,7 @@ function Tab:AddColorPicker(config)
         Parent = row,
     })
     addCorner(swatch, 6)
-    addStroke(swatch, 0.48)
+    addStroke(swatch, 0.44)
 
     local paletteFrame = create("Frame", {
         Name = "Palette",
@@ -1963,7 +1960,7 @@ function Tab:AddColorPicker(config)
             Parent = paletteFrame,
         })
         addCorner(colorButton, 5)
-        addStroke(colorButton, 0.58)
+        addStroke(colorButton, 0.54)
 
         colorButton.Activated:Connect(function()
             object:Set(color)

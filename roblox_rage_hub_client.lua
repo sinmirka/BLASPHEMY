@@ -1,8 +1,8 @@
 -- Blasphemy Client
 -- Replace GUI_LIBRARY_URL with your raw GitHub link to roblox_prism_gui_library.lua.
 
-local GUI_LIBRARY_URL = "https://cdn.jsdelivr.net/gh/sinmirka/BLASPHEMY@c95f3b0/roblox_prism_gui_library.lua"
-local REQUIRED_GUI_LIBRARY_VERSION = "1.3.1"
+local GUI_LIBRARY_URL = "https://raw.githubusercontent.com/sinmirka/BLASPHEMY/main/roblox_prism_gui_library.lua?v=1.4.0"
+local REQUIRED_GUI_LIBRARY_VERSION = "1.4.0"
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -201,7 +201,6 @@ local watermarkTitle = nil
 local watermarkStats = nil
 local watermarkAccent = nil
 local watermarkStroke = nil
-local watermarkGradient = nil
 
 local function getActiveTheme()
     local themeName = "Dark"
@@ -254,13 +253,6 @@ local function applyWatermarkTheme()
 
     if watermarkStroke then
         watermarkStroke.Color = theme.Stroke or Color3.fromRGB(58, 67, 86)
-    end
-
-    if watermarkGradient then
-        watermarkGradient.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, theme.CardHover or Color3.fromRGB(33, 38, 51)),
-            ColorSequenceKeypoint.new(1, theme.Card or Color3.fromRGB(27, 31, 42)),
-        })
     end
 end
 
@@ -359,10 +351,6 @@ local function createBlasphemyWatermark()
     watermarkStroke.Thickness = 1
     watermarkStroke.Parent = watermarkFrame
 
-    watermarkGradient = Instance.new("UIGradient")
-    watermarkGradient.Rotation = 12
-    watermarkGradient.Parent = watermarkFrame
-
     watermarkAccent = Instance.new("Frame")
     watermarkAccent.Name = "Accent"
     watermarkAccent.BorderSizePixel = 0
@@ -371,7 +359,7 @@ local function createBlasphemyWatermark()
     watermarkAccent.Parent = watermarkFrame
 
     local accentCorner = Instance.new("UICorner")
-    accentCorner.CornerRadius = UDim.new(1, 0)
+    accentCorner.CornerRadius = UDim.new(0, 1)
     accentCorner.Parent = watermarkAccent
 
     watermarkTitle = Instance.new("TextLabel")
@@ -406,7 +394,6 @@ local function createBlasphemyWatermark()
         watermarkStats = nil
         watermarkAccent = nil
         watermarkStroke = nil
-        watermarkGradient = nil
         return
     end
 

@@ -9,7 +9,7 @@ A lightweight Roblox client script hub with a bundled GUI library loader.
 Copy and execute this:
 
 ```lua
-loadstring(game:HttpGet("https://cdn.jsdelivr.net/gh/sinmirka/BLASPHEMY@eb2d20e/roblox_rage_hub_client.lua"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/sinmirka/BLASPHEMY/main/roblox_rage_hub_client.lua?v=1.4.0"))()
 ```
 
 ## Files
@@ -31,7 +31,7 @@ loadstring(game:HttpGet("https://cdn.jsdelivr.net/gh/sinmirka/BLASPHEMY@eb2d20e/
 ## Requirements
 
 - Your environment must support `loadstring` and `game:HttpGet`.
-- Access to `cdn.jsdelivr.net` is required.
+- Access to `raw.githubusercontent.com` is required.
 - Config saving requires executor file APIs such as `writefile`, `readfile`, and `isfile`.
 - Some input features require `VirtualInputManager` support.
 - Script queueing after reconnect requires `queue_on_teleport` or an equivalent executor API.
@@ -39,7 +39,7 @@ loadstring(game:HttpGet("https://cdn.jsdelivr.net/gh/sinmirka/BLASPHEMY@eb2d20e/
 
 ## Notes
 
-- The loadstring is pinned to a tested commit to avoid stale CDN cache.
+- Pin the loadstring and GUI library URLs to a tested commit after release if you want strict version locking.
 - If the GUI does not appear, check that the loadstring URL and bundled GUI library URL return `200 OK`.
 - Auto Reconnect can attempt to queue the loader on teleport, but Auto Execute is still the most reliable fallback.
 - Use at your own risk.
