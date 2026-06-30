@@ -9,7 +9,7 @@ local LocalPlayer = Players.LocalPlayer
 
 local Library = {}
 Library.__index = Library
-Library.Version = "1.4.0"
+Library.Version = "1.4.1"
 
 local unpackValues = table.unpack or unpack
 
@@ -445,10 +445,12 @@ function Library:CreateWindow(config)
         Parent = body,
     })
 
-    create("UIPadding", {
-        PaddingTop = UDim.new(0, 10),
-        PaddingLeft = UDim.new(0, 8),
-        PaddingRight = UDim.new(0, 8),
+    local tabListFrame = create("Frame", {
+        Name = "TabList",
+        Position = UDim2.fromOffset(8, 10),
+        Size = UDim2.new(1, -16, 1, -20),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
         Parent = sidebar,
     })
 
@@ -456,7 +458,7 @@ function Library:CreateWindow(config)
         FillDirection = Enum.FillDirection.Vertical,
         SortOrder = Enum.SortOrder.LayoutOrder,
         Padding = UDim.new(0, 6),
-        Parent = sidebar,
+        Parent = tabListFrame,
     })
 
     local content = create("Frame", {
@@ -539,6 +541,7 @@ function Library:CreateWindow(config)
                     or descendant.Name == "Selected"
                     or descendant.Name == "Text"
                     or descendant.Name == "ButtonArrow"
+                    or descendant.Name == "TabLabel"
                     or descendant.Name == "Minimize" then
                     descendant.TextColor3 = Theme.Muted
                 elseif descendant.Name == "Value" or descendant.Name == "Arrow" or descendant.Name == "Key" or descendant.Name == "Check" then
@@ -553,6 +556,8 @@ function Library:CreateWindow(config)
                     descendant.BackgroundColor3 = Theme.Header
                 elseif descendant.Name == "Sidebar" then
                     descendant.BackgroundColor3 = Theme.Sidebar
+                elseif descendant.Name == "TabList" then
+                    descendant.BackgroundTransparency = 1
                 elseif descendant.Name == "HeaderDivider" or descendant.Name == "SidebarDivider" or descendant.Name == "SectionLine" then
                     descendant.BackgroundColor3 = Theme.Stroke
                 elseif descendant.Name == "Accent" or descendant.Name == "Fill" then
@@ -656,6 +661,7 @@ function Library:CreateWindow(config)
                 BackgroundColor3 = selected and Theme.Card or Theme.Sidebar,
             })
             item.Button.TextColor3 = selected and Theme.Text or Theme.Muted
+            item.Label.TextColor3 = selected and Theme.Text or Theme.Muted
             item.Accent.Visible = selected
         end
 
@@ -676,17 +682,27 @@ function Library:CreateWindow(config)
             BorderSizePixel = 0,
             AutoButtonColor = false,
             Font = Enum.Font.GothamSemibold,
+            Text = "",
+            TextColor3 = Theme.Muted,
+            TextSize = 12,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 2,
+            Parent = tabListFrame,
+        })
+        addCorner(button, 7)
+
+        local tabLabel = create("TextLabel", {
+            Name = "TabLabel",
+            Position = UDim2.fromOffset(16, 0),
+            Size = UDim2.new(1, -24, 1, 0),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.GothamSemibold,
             Text = tabName,
             TextColor3 = Theme.Muted,
             TextSize = 12,
             TextXAlignment = Enum.TextXAlignment.Left,
-            Parent = sidebar,
-        })
-        addCorner(button, 7)
-
-        create("UIPadding", {
-            PaddingLeft = UDim.new(0, 16),
-            PaddingRight = UDim.new(0, 8),
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            ZIndex = 3,
             Parent = button,
         })
 
@@ -698,6 +714,7 @@ function Library:CreateWindow(config)
             BackgroundColor3 = Theme.Accent,
             BorderSizePixel = 0,
             Visible = false,
+            ZIndex = 3,
             Parent = button,
         })
         addCorner(accent, 3)
@@ -734,6 +751,7 @@ function Library:CreateWindow(config)
             Name = tabName,
             Window = self,
             Button = button,
+            Label = tabLabel,
             Accent = accent,
             Page = page,
             Layout = layout,

@@ -1,8 +1,8 @@
 -- Blasphemy Client
 -- Replace GUI_LIBRARY_URL with your raw GitHub link to roblox_prism_gui_library.lua.
 
-local GUI_LIBRARY_URL = "https://raw.githubusercontent.com/sinmirka/BLASPHEMY/main/roblox_prism_gui_library.lua?v=1.4.0"
-local REQUIRED_GUI_LIBRARY_VERSION = "1.4.0"
+local GUI_LIBRARY_URL = "https://raw.githubusercontent.com/sinmirka/BLASPHEMY/main/roblox_prism_gui_library.lua?v=1.4.1"
+local REQUIRED_GUI_LIBRARY_VERSION = "1.4.1"
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -15,7 +15,7 @@ local GuiService = game:GetService("GuiService")
 
 local LocalPlayer = Players.LocalPlayer
 local ZERO_VECTOR = Vector3.new(0, 0, 0)
-local SELF_RELOAD_URL = "https://raw.githubusercontent.com/sinmirka/BLASPHEMY/main/roblox_rage_hub_client.lua"
+local SELF_RELOAD_URL = "https://raw.githubusercontent.com/sinmirka/BLASPHEMY/main/roblox_rage_hub_client.lua?v=1.4.1"
 
 local function deferTask(callback)
     if task and task.defer then
